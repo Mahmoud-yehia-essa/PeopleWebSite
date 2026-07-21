@@ -39,9 +39,6 @@ class NullAdapter implements AdapterInterface, CacheInterface, NamespacedPoolInt
         );
     }
 
-    /**
-     * @param-immediately-invoked-callable $callback
-     */
     public function get(string $key, callable $callback, ?float $beta = null, ?array &$metadata = null): mixed
     {
         $save = true;
