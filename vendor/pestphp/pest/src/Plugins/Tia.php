@@ -219,8 +219,11 @@ final class Tia implements AddsOutput, HandlesArguments, Terminable
         if (! $watchPatterns->isEnabled()) {
             return false;
         }
+        if (! $watchPatterns->isLocally()) {
+            return true;
+        }
 
-        return ! ($watchPatterns->isLocally() && self::argumentPresent('--ci', $arguments));
+        return ! self::argumentPresent('--ci', $arguments);
     }
 
     /**
@@ -251,7 +254,7 @@ final class Tia implements AddsOutput, HandlesArguments, Terminable
                 return true;
             }
 
-            if (str_starts_with($arg, "$argument=")) {
+            if (str_starts_with((string) $arg, "$argument=")) { // @phpstan-ignore-line
                 return true;
             }
         }
@@ -1489,6 +1492,8 @@ final class Tia implements AddsOutput, HandlesArguments, Terminable
         }
 
         foreach ($arguments as $index => $arg) {
+            $arg = (string) $arg; // @phpstan-ignore-line
+
             if ($arg === '') {
                 continue;
             }
