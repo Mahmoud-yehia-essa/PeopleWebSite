@@ -92,6 +92,13 @@ class Event
     public $exitCode;
 
     /**
+     * Indicates whether the execution was skipped due to the mutex already being reserved.
+     *
+     * @var bool
+     */
+    public $skippedBecauseOverlapping = false;
+
+    /**
      * Create a new event instance.
      *
      * @param  \Illuminate\Console\Scheduling\EventMutex  $mutex
@@ -127,7 +134,11 @@ class Event
      */
     public function run(Container $container)
     {
+        $this->skippedBecauseOverlapping = false;
+
         if ($this->shouldSkipDueToOverlapping()) {
+            $this->skippedBecauseOverlapping = true;
+
             return;
         }
 
@@ -338,19 +349,8 @@ class Event
     {
         $this->lastChecked = Date::now();
 
-        foreach ($this->filters as $callback) {
-            if (! $this->callEventCallback($app, $callback)) {
-                return false;
-            }
-        }
-
-        foreach ($this->rejects as $callback) {
-            if ($this->callEventCallback($app, $callback)) {
-                return false;
-            }
-        }
-
-        return true;
+        return array_all($this->filters, fn ($callback) => $this->callEventCallback($app, $callback))
+            && array_all($this->rejects, fn ($callback) => ! $this->callEventCallback($app, $callback));
     }
 
     /**
