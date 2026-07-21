@@ -32,6 +32,7 @@ return array(
     'App\\Http\\Controllers\\Auth\\EmailVerificationNotificationController' => $baseDir . '/app/Http/Controllers/Auth/EmailVerificationNotificationController.php',
     'App\\Http\\Controllers\\Auth\\EmailVerificationPromptController' => $baseDir . '/app/Http/Controllers/Auth/EmailVerificationPromptController.php',
     'App\\Http\\Controllers\\Auth\\FacebookController' => $baseDir . '/app/Http/Controllers/Auth/FacebookController.php',
+    'App\\Http\\Controllers\\Auth\\FirebaseAuthController' => $baseDir . '/app/Http/Controllers/Auth/FirebaseAuthController.php',
     'App\\Http\\Controllers\\Auth\\GoogleController' => $baseDir . '/app/Http/Controllers/Auth/GoogleController.php',
     'App\\Http\\Controllers\\Auth\\LoginController' => $baseDir . '/app/Http/Controllers/Auth/LoginController.php',
     'App\\Http\\Controllers\\Auth\\NewPasswordController' => $baseDir . '/app/Http/Controllers/Auth/NewPasswordController.php',
