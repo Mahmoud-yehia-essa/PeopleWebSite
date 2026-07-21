@@ -39,8 +39,6 @@ class TraceableAdapter implements AdapterInterface, CacheInterface, NamespacedPo
     }
 
     /**
-     * @param-immediately-invoked-callable $callback
-     *
      * @throws BadMethodCallException When the item pool is not a CacheInterface
      */
     public function get(string $key, callable $callback, ?float $beta = null, ?array &$metadata = null): mixed
