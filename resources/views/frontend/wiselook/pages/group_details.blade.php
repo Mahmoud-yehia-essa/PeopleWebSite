@@ -819,16 +819,13 @@ $(document).ready(function() {
         const groupDesc = btn.attr('data-group-desc') || '';
         const shareUrl = window.location.origin + '/groups/' + btn.attr('data-group-id');
         
-        // Text without URL (for Native Share & Twitter)
-        const textOnly = _gt.join_us_in_group.replace(':group', groupTitle).replace(':desc', groupDesc.substring(0, 100)).replace('\n:url', '').replace(':url', '').trim();
-        // Full text with URL once (for WhatsApp)
-        const fullShareText = `${textOnly}\n${shareUrl}`;
+        const textHeader = _gt.join_us_in_group.replace(':group', groupTitle).replace(':desc', groupDesc.substring(0, 100)).replace('\n:url', '').replace(':url', '').trim();
+        const fullShareText = `${textHeader}\n${shareUrl}`;
 
         if (navigator.share) {
             navigator.share({
                 title: groupTitle,
-                text: textOnly,
-                url: shareUrl
+                text: fullShareText
             }).catch((error) => console.log('Error sharing:', error));
         } else {
             // Fallback: Open the same premium share modal
@@ -838,7 +835,7 @@ $(document).ready(function() {
             // Set social share hrefs
             $('#share-whatsapp').attr('href', `https://api.whatsapp.com/send?text=${encodeURIComponent(fullShareText)}`);
             $('#share-facebook').attr('href', `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`);
-            $('#share-twitter').attr('href', `https://twitter.com/intent/tweet?text=${encodeURIComponent(textOnly)}&url=${encodeURIComponent(shareUrl)}`);
+            $('#share-twitter').attr('href', `https://twitter.com/intent/tweet?text=${encodeURIComponent(fullShareText)}`);
             $('#share-linkedin').attr('href', `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`);
 
             // Open Modal
