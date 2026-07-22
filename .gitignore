@@ -26,6 +26,7 @@ Homestead.yaml
 Thumbs.db
 /public/new_wiselook
 /vendor
+composer.lock
 
 
 
