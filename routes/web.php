@@ -53,7 +53,11 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/messages/call/end', [CallController::class, 'endCall']);
 });
 
-Route::get('/', [PostController::class, 'indexFrontend'])->name('frontend.home');
+Route::get('/', function () {
+    return view('frontend.soon');
+})->name('frontend.soon');
+
+Route::get('/dev', [PostController::class, 'indexFrontend'])->name('frontend.home');
 Route::get('/trending-issues', [PostController::class, 'trendingIssues'])->name('frontend.trending');
 
 use App\Http\Controllers\Auth\LoginController;
