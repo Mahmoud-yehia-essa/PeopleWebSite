@@ -373,8 +373,14 @@
                             {{ __('إعادة إرسال الرمز الآن') }}
                         </button>
                     </div>
+                    <div class="pt-2">
+                        <button type="button" onclick="fbSwitchToWhatsappAndSend()" class="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 font-bold transition-all text-xs cursor-pointer">
+                            <i class="fa-brands fa-whatsapp text-sm text-emerald-600"></i>
+                            <span>{{ __('لم تصلك رسالة الـ SMS؟ استلم الرمز عبر الواتساب') }}</span>
+                        </button>
+                    </div>
                     <div>
-                        <a class="text-outline hover:text-on-surface font-medium cursor-pointer inline-flex items-center gap-1" onclick="fbBackToStep1()">
+                        <a class="text-outline hover:text-on-surface font-medium cursor-pointer inline-flex items-center gap-1 mt-2" onclick="fbBackToStep1()">
                             <span class="material-symbols-outlined text-[16px]">edit</span>
                             <span>{{ __('تعديل البيانات') }}</span>
                         </a>
