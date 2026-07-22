@@ -443,6 +443,43 @@ window.fbResendOtp = async function () {
     }
 };
 
+// ---------------------------------------------------------
+// Switch to WhatsApp on Step 2 if SMS fails to deliver
+// ---------------------------------------------------------
+window.fbSwitchToWhatsappAndSend = async function () {
+    const fullPhone = window._fbFullPhone;
+    if (!fullPhone) return;
+
+    window._fbFlowType = 'WHATSAPP';
+    const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
+
+    showAlert('success', 'جاري طلب إرسال الرمز عبر الواتساب...');
+    try {
+        const response = await fetch('/send-whatsapp-otp-new', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': csrfToken,
+                'Accept': 'application/json',
+            },
+            body: JSON.stringify({ phone: fullPhone, is_register: window._fbIsRegister }),
+        });
+
+        const data = await response.json();
+        if (response.ok && data.success) {
+            showAlert('success', data.message || `تم إرسال رمز التحقق عبر الواتساب إلى ${fullPhone}`);
+            const subtitleEl = document.getElementById('fb-step-subtitle');
+            if (subtitleEl) subtitleEl.textContent = 'أدخل رمز التحقق المرسل عبر الواتساب';
+            startCountdown(60);
+        } else {
+            showAlert('error', data.message || 'تعذر إرسال الرمز عبر الواتساب.');
+        }
+    } catch (err) {
+        console.error('WhatsApp send error:', err);
+        showAlert('error', 'حدث خطأ في الاتصال أثناء الإرسال عبر الواتساب.');
+    }
+};
+
 
 // ---------------------------------------------------------
 // OTP input auto-advance behaviour (exposed globally)

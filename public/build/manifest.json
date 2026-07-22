@@ -1,6 +1,6 @@
 {
   "resources/css/app.css": {
-    "file": "assets/app-4VSMeRDd.css",
+    "file": "assets/app-BsBJXDH1.css",
     "name": "app",
     "names": [
       "app.css"
@@ -15,7 +15,7 @@
     "isEntry": true
   },
   "resources/js/firebase-phone-auth.js": {
-    "file": "assets/firebase-phone-auth-Bx0d7rCM.js",
+    "file": "assets/firebase-phone-auth-46YfP8wB.js",
     "name": "firebase-phone-auth",
     "src": "resources/js/firebase-phone-auth.js",
     "isEntry": true
