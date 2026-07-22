@@ -85,6 +85,8 @@
 </head>
 
 <body>
+	<!-- Global Preloader -->
+	@include('frontend.wiselook.body.preloader')
 	<!--wrapper-->
 	<div class="wrapper">
 		<!--sidebar wrapper -->
