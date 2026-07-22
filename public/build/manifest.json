@@ -1,0 +1,23 @@
+{
+  "resources/css/app.css": {
+    "file": "assets/app-DsGXcPzv.css",
+    "name": "app",
+    "names": [
+      "app.css"
+    ],
+    "src": "resources/css/app.css",
+    "isEntry": true
+  },
+  "resources/js/app.js": {
+    "file": "assets/app-B7NGVDAw.js",
+    "name": "app",
+    "src": "resources/js/app.js",
+    "isEntry": true
+  },
+  "resources/js/firebase-phone-auth.js": {
+    "file": "assets/firebase-phone-auth-BynpADLQ.js",
+    "name": "firebase-phone-auth",
+    "src": "resources/js/firebase-phone-auth.js",
+    "isEntry": true
+  }
+}
