@@ -518,17 +518,14 @@
                 const shareUrl = window.location.origin + '/post/' + postId;
                 const snippet = postContent ? (postContent.substring(0, 100) + (postContent.length > 100 ? '...' : '')) : '';
                 
-                // Text without URL (for Native Share & Twitter to avoid URL duplication)
-                const textOnly = snippet ? `اقرأ هذا الموضوع الشيق على حكماء العالم:\n"${snippet}"` : 'اقرأ هذا الموضوع الشيق على حكماء العالم';
-                // Full text with URL once (for WhatsApp which takes a single text param)
-                const fullShareText = `${textOnly}\n${shareUrl}`;
+                const textHeader = snippet ? `اقرأ هذا الموضوع الشيق على حكماء العالم:\n"${snippet}"` : 'اقرأ هذا الموضوع الشيق على حكماء العالم';
+                const fullShareText = `${textHeader}\n${shareUrl}`;
 
                 // If native sharing is available (mobile browsers), use it
                 if (navigator.share) {
                     navigator.share({
                         title: 'حكماء العالم',
-                        text: textOnly,
-                        url: shareUrl
+                        text: fullShareText
                     }).catch((error) => console.log('Error sharing:', error));
                 } else {
                     // Fallback: Open custom premium share modal
@@ -538,7 +535,7 @@
                     // Set href links for social share buttons
                     $('#share-whatsapp').attr('href', `https://api.whatsapp.com/send?text=${encodeURIComponent(fullShareText)}`);
                     $('#share-facebook').attr('href', `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`);
-                    $('#share-twitter').attr('href', `https://twitter.com/intent/tweet?text=${encodeURIComponent(textOnly)}&url=${encodeURIComponent(shareUrl)}`);
+                    $('#share-twitter').attr('href', `https://twitter.com/intent/tweet?text=${encodeURIComponent(fullShareText)}`);
                     $('#share-linkedin').attr('href', `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`);
 
                     // Show Modal
