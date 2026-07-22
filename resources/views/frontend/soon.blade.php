@@ -183,29 +183,6 @@
                 </div>
             </div>
 
-            <!-- Temporary Access Box (/dev) -->
-            <div class="p-6 rounded-2xl bg-gradient-to-r from-emerald-950/60 to-emerald-900/60 border border-accent/30 shadow-xl max-w-lg mx-auto text-center relative overflow-hidden">
-                <div class="absolute -top-12 -right-12 w-24 h-24 bg-accent/10 rounded-full blur-xl pointer-events-none"></div>
-                
-                <h4 class="font-headline text-sm font-bold text-accent mb-2 flex items-center justify-center gap-1.5">
-                    <span class="material-symbols-outlined text-[18px]">code</span>
-                    <span>النسخة التجريبية للتطوير والمعاينة</span>
-                </h4>
-                
-                <p class="font-body text-xs text-slate-200/90 mb-4">
-                    يمكن للمطورين والفرق المعنية الدخول المؤقت للموقع عبر الرابط المخصص:
-                </p>
-
-                <a href="{{ url('/dev') }}" class="inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-xl bg-gradient-to-r from-accent to-accent-dark text-primary font-headline font-extrabold text-sm shadow-lg shadow-accent/20 hover:shadow-accent/30 hover:scale-[1.02] transition-all duration-300">
-                    <span>الدخول إلى الموقع التجريبي (Dev)</span>
-                    <span class="material-symbols-outlined text-[18px]">arrow_back</span>
-                </a>
-
-                <div class="mt-3 text-[11px] text-slate-400 font-mono dir-ltr">
-                    wiselook.org/dev
-                </div>
-            </div>
-
             <!-- Footer Note -->
             <div class="mt-8 text-xs text-slate-400 font-body">
                 جميع الحقوق محفوظة &copy; {{ date('Y') }} لمنصة حكماء العالم
