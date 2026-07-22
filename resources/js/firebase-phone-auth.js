@@ -220,12 +220,13 @@ window.fbHandleSendOtp = async function (event) {
 
         confirmationResult = await signInWithPhoneNumber(auth, fullPhone, recaptchaVerifier);
 
-        showAlert('success', `تم إرسال رمز التحقق إلى ${fullPhone}`);
+        showAlert('success', `تم إرسال طلب رمز التحقق إلى ${fullPhone}`);
         setTimeout(() => fbGoToStep2(fullPhone), 600);
 
     } catch (err) {
         console.error("Firebase Error Details:", err);
-        alert("رمز الخطأ: " + err.code + "\n\nالرسالة التفصيلية: " + err.message);
+        const errMsg = firebaseErrorArabic(err.code, err.message);
+        showAlert('error', errMsg);
 
         // Reset recaptcha on error
         if (recaptchaVerifier) {
@@ -473,17 +474,23 @@ window.fbInitOtpInputs = function () {
 // ---------------------------------------------------------
 // Map Firebase error codes to Arabic messages
 // ---------------------------------------------------------
-function firebaseErrorArabic(code) {
+function firebaseErrorArabic(code, customMessage = '') {
     const map = {
-        'auth/invalid-phone-number'      : 'رقم الهاتف المدخل غير صحيح.',
-        'auth/too-many-requests'         : 'طلبات كثيرة جداً. يرجى المحاولة لاحقاً.',
+        'auth/invalid-phone-number'      : 'رقم الهاتف المدخل غير صحيح أو الصيغة غير مدعومة.',
+        'auth/too-many-requests'         : 'تم حظر هذا الرقم مؤقتاً لكثرة المحاولات. يرجى المحاولة لاحقاً.',
         'auth/invalid-verification-code' : 'رمز التحقق غير صحيح.',
         'auth/code-expired'              : 'انتهت صلاحية رمز التحقق. يرجى إعادة الإرسال.',
-        'auth/quota-exceeded'            : 'تم تجاوز الحد اليومي لرسائل Firebase.',
-        'auth/captcha-check-failed'      : 'فشل التحقق من reCAPTCHA. يرجى المحاولة مجدداً.',
-        'auth/network-request-failed'    : 'خطأ في الشبكة. تحقق من اتصال الإنترنت.',
+        'auth/quota-exceeded'            : 'تم تجاوز حصة الرسائل المسموحة في مشروع Firebase (Quota Exceeded).',
+        'auth/captcha-check-failed'      : 'فشل التحقق من reCAPTCHA. تأكد من إضافة الدومين إلى Authorized Domains في Firebase.',
+        'auth/app-not-authorized'        : 'هذا الدومين غير مصرح له بتسجيل الدخول في Firebase (Authorized Domains).',
+        'auth/network-request-failed'    : 'خطأ في الشبكة. تحقق من اتصال الإنترنت أو إعدادات خوادم Firebase.',
+        'auth/internal-error'            : 'حدث خطأ داخلي في نظام Firebase.',
     };
-    return map[code] || `حدث خطأ (${code}). يرجى المحاولة مرة أخرى.`;
+    const translated = map[code];
+    if (translated) {
+        return `${translated} [${code}]`;
+    }
+    return `خطأ في الفيربيز (${code || 'Error'}): ${customMessage || 'يرجى مراجعة إعدادات Firebase Console.'}`;
 }
 
 // ---------------------------------------------------------
