@@ -1,2 +1,5 @@
 /public/new_wiselook
 /node_modules
+.env
+.env.*
+!.env.example
