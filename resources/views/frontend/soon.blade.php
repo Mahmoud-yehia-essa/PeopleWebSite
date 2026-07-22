@@ -179,7 +179,7 @@
                         <span class="material-symbols-outlined text-[24px]">groups</span>
                     </div>
                     <h3 class="font-headline font-bold text-base text-white mb-1">المجموعات التخصصية</h3>
-                    <p class="font-body text-xs text-slate-300/80 leading-normal">عشائر وتجمعات معرفية في كافة المجالات الحيوية</p>
+                    <p class="font-body text-xs text-slate-300/80 leading-normal">مجموعات نقاشية في مختلف المواضيع</p>
                 </div>
             </div>
 
