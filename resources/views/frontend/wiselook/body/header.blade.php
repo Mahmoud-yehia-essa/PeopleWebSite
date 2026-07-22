@@ -65,7 +65,7 @@
 
     <ul class="flex-1 space-y-2 overflow-y-auto px-4">
         <li>
-            <a class="{{ $isHome ? 'bg-secondary-container text-on-secondary-container font-semibold' : 'text-on-surface-variant hover:bg-surface-variant/50' }} rounded-lg mx-2 px-4 py-3 flex items-center space-x-4 space-x-reverse hover:translate-x-reverse-1 duration-200" href="{{ url('/') }}">
+            <a class="{{ $isHome ? 'bg-secondary-container text-on-secondary-container font-semibold' : 'text-on-surface-variant hover:bg-surface-variant/50' }} rounded-lg mx-2 px-4 py-3 flex items-center space-x-4 space-x-reverse hover:translate-x-reverse-1 duration-200" href="{{ route('frontend.home') }}">
                 <span class="material-symbols-outlined {{ $isHome ? 'fill' : '' }}">forum</span>
                 <span class="font-body-md text-body-md">{{ __t('discussion_board') }}</span>
             </a>
@@ -139,7 +139,7 @@
         <button id="hamburger-menu-btn" class="text-primary hover:bg-primary/5 p-2 rounded-full transition-all duration-300 flex items-center justify-center cursor-pointer">
             <span class="material-symbols-outlined text-[24px]">menu</span>
         </button>
-        <a href="{{ url('/') }}" class="flex items-center shrink-0">
+        <a href="{{ route('frontend.home') }}" class="flex items-center shrink-0">
             <div class="logo-frame-header">
                 <div class="logo-inner-header bg-emerald-deep p-0.5 w-10 h-10 flex items-center justify-center rounded-full">
                     <img alt="حكماء العالم" class="w-full h-full object-contain rounded-full opacity-95" src="{{ asset('backend/assets/images/logo.png') }}">
@@ -150,7 +150,7 @@
 
     <!-- Web Navigation Links -->
     <nav class="hidden md:flex items-center space-x-2 space-x-reverse h-full md:mr-8">
-        <a class="relative py-2 px-3 font-label-md text-xs font-bold transition-all duration-300 rounded-lg flex items-center gap-1.5 {{ $isHome ? 'text-primary bg-primary/5' : 'text-on-surface-variant/80 hover:text-primary hover:bg-primary/5' }}" href="{{ url('/') }}">
+        <a class="relative py-2 px-3 font-label-md text-xs font-bold transition-all duration-300 rounded-lg flex items-center gap-1.5 {{ $isHome ? 'text-primary bg-primary/5' : 'text-on-surface-variant/80 hover:text-primary hover:bg-primary/5' }}" href="{{ route('frontend.home') }}">
             <span class="material-symbols-outlined text-[18px]">forum</span>
             <span>{{ __t('discussion_board') }}</span>
             @if($isHome)
