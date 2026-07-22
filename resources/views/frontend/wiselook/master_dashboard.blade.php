@@ -516,13 +516,18 @@
                 const postId = btn.attr('data-post-id');
                 const postContent = decodeURIComponent(btn.attr('data-post-content') || '');
                 const shareUrl = window.location.origin + '/post/' + postId;
-                const shareText = `اقرأ هذا الموضوع الشيق على حكماء العالم:\n"${postContent.substring(0, 100)}..."\n${shareUrl}`;
+                const snippet = postContent ? (postContent.substring(0, 100) + (postContent.length > 100 ? '...' : '')) : '';
+                
+                // Text without URL (for Native Share & Twitter to avoid URL duplication)
+                const textOnly = snippet ? `اقرأ هذا الموضوع الشيق على حكماء العالم:\n"${snippet}"` : 'اقرأ هذا الموضوع الشيق على حكماء العالم';
+                // Full text with URL once (for WhatsApp which takes a single text param)
+                const fullShareText = `${textOnly}\n${shareUrl}`;
 
                 // If native sharing is available (mobile browsers), use it
                 if (navigator.share) {
                     navigator.share({
                         title: 'حكماء العالم',
-                        text: shareText,
+                        text: textOnly,
                         url: shareUrl
                     }).catch((error) => console.log('Error sharing:', error));
                 } else {
@@ -531,9 +536,9 @@
                     $('#share-modal-preview-text').text(postContent ? postContent.substring(0, 150) + (postContent.length > 150 ? '...' : '') : 'موضوع مميز على حكماء العالم...');
                     
                     // Set href links for social share buttons
-                    $('#share-whatsapp').attr('href', `https://api.whatsapp.com/send?text=${encodeURIComponent(shareText)}`);
+                    $('#share-whatsapp').attr('href', `https://api.whatsapp.com/send?text=${encodeURIComponent(fullShareText)}`);
                     $('#share-facebook').attr('href', `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`);
-                    $('#share-twitter').attr('href', `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}`);
+                    $('#share-twitter').attr('href', `https://twitter.com/intent/tweet?text=${encodeURIComponent(textOnly)}&url=${encodeURIComponent(shareUrl)}`);
                     $('#share-linkedin').attr('href', `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`);
 
                     // Show Modal

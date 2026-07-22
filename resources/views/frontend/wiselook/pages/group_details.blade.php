@@ -818,12 +818,16 @@ $(document).ready(function() {
         const groupTitle = btn.attr('data-group-title') || _gt.special_group;
         const groupDesc = btn.attr('data-group-desc') || '';
         const shareUrl = window.location.origin + '/groups/' + btn.attr('data-group-id');
-        const shareText = _gt.join_us_in_group.replace(':group', groupTitle).replace(':desc', groupDesc.substring(0, 100)).replace(':url', shareUrl);
+        
+        // Text without URL (for Native Share & Twitter)
+        const textOnly = _gt.join_us_in_group.replace(':group', groupTitle).replace(':desc', groupDesc.substring(0, 100)).replace('\n:url', '').replace(':url', '').trim();
+        // Full text with URL once (for WhatsApp)
+        const fullShareText = `${textOnly}\n${shareUrl}`;
 
         if (navigator.share) {
             navigator.share({
                 title: groupTitle,
-                text: shareText,
+                text: textOnly,
                 url: shareUrl
             }).catch((error) => console.log('Error sharing:', error));
         } else {
@@ -832,9 +836,9 @@ $(document).ready(function() {
             $('#share-modal-preview-text').text(groupDesc ? groupDesc.substring(0, 150) + (groupDesc.length > 150 ? '...' : '') : _gt.group_share_preview.replace(':group', groupTitle));
             
             // Set social share hrefs
-            $('#share-whatsapp').attr('href', `https://api.whatsapp.com/send?text=${encodeURIComponent(shareText)}`);
+            $('#share-whatsapp').attr('href', `https://api.whatsapp.com/send?text=${encodeURIComponent(fullShareText)}`);
             $('#share-facebook').attr('href', `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`);
-            $('#share-twitter').attr('href', `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}`);
+            $('#share-twitter').attr('href', `https://twitter.com/intent/tweet?text=${encodeURIComponent(textOnly)}&url=${encodeURIComponent(shareUrl)}`);
             $('#share-linkedin').attr('href', `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`);
 
             // Open Modal
