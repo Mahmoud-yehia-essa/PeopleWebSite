@@ -163,6 +163,8 @@
     @stack('styles')
 </head>
 <body class="bg-background antialiased flex flex-col min-h-screen selection:bg-primary-container selection:text-on-primary-container">
+    <!-- Global Preloader -->
+    @include('frontend.wiselook.body.preloader')
     
     <!-- Header -->
     @include('frontend.wiselook.body.header')

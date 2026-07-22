@@ -82,6 +82,8 @@
     </script>
 </head>
 <body class="bg-background text-on-surface">
+<!-- Global Preloader -->
+@include('frontend.wiselook.body.preloader')
 <main class="flex flex-col lg:flex-row min-h-screen w-full overflow-hidden">
     <!-- Left Half: Branding & Illustration (Desktop Only) -->
     <section class="hidden lg:flex lg:w-1/2 relative bg-gradient-to-tr from-[#002112] via-[#1a5237] to-[#003a23] items-center justify-center p-12 overflow-hidden z-0">
