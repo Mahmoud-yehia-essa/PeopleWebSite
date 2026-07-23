@@ -382,6 +382,7 @@
     $(document).ready(function() {
         const postId = {{ $post->id }};
         const isRtl = {{ $dir === 'rtl' ? 'true' : 'false' }};
+        const currentUserId = {{ Auth::check() ? Auth::id() : 'null' }};
         let pageComments = [];
 
         // Load page comments
@@ -412,6 +413,12 @@
             const repliesHtml = renderPageReplies(comment.replies);
             const repliesCount = comment.replies ? comment.replies.length : 0;
             const userLiked = comment.user_liked;
+            const isOwner = currentUserId && (currentUserId == comment.user_id);
+            const deleteBtnHtml = isOwner ? `
+                <button class="delete-comment-btn text-on-surface-variant/60 hover:text-red-600 transition-colors p-1 rounded-full hover:bg-red-50 border-none bg-transparent cursor-pointer flex items-center justify-center shrink-0" title="حذف التعليق" data-comment-id="${comment.id}">
+                    <span class="material-symbols-outlined text-[17px] text-red-500">delete</span>
+                </button>
+            ` : '';
             
             const profileLink = comment.user_id ? `/profile/${comment.user_id}` : '#';
             const avatarHtml = comment.user_id 
@@ -432,6 +439,7 @@
                                     ${nameHtml}
                                     <p class="text-[10px] text-on-surface-variant">${comment.created_at}</p>
                                 </div>
+                                ${deleteBtnHtml}
                             </div>
                             <p class="text-sm text-on-surface leading-relaxed">${comment.content}</p>
                             
@@ -490,6 +498,12 @@
         // Helper to build HTML for a nested reply card
         function buildReplyHtml(reply) {
             const userLiked = reply.user_liked;
+            const isOwner = currentUserId && (currentUserId == reply.user_id);
+            const deleteBtnHtml = isOwner ? `
+                <button class="delete-reply-btn text-on-surface-variant/60 hover:text-red-600 transition-colors p-1 rounded-full hover:bg-red-50 border-none bg-transparent cursor-pointer flex items-center justify-center shrink-0" title="حذف الرد" data-reply-id="${reply.id}">
+                    <span class="material-symbols-outlined text-[15px] text-red-500">delete</span>
+                </button>
+            ` : '';
             
             const profileLink = reply.user_id ? `/profile/${reply.user_id}` : '#';
             const avatarHtml = reply.user_id 
@@ -509,6 +523,7 @@
                                 ${nameHtml}
                                 <p class="text-[9px] text-on-surface-variant">${reply.created_at}</p>
                             </div>
+                            ${deleteBtnHtml}
                         </div>
                         <p class="text-xs text-on-surface leading-relaxed">${reply.content}</p>
                         
@@ -800,6 +815,93 @@
             if (typeof showCommentLikers === 'function') {
                 showCommentLikers(replyId, '{{ __t("reply_word") }}');
             }
+        });
+
+        // Delete Comment Action (AJAX)
+        $(document).on('click', '#page-comments-list .delete-comment-btn', function(e) {
+            e.preventDefault();
+            const btn = $(this);
+            const card = btn.closest('.comment-card');
+            const commentId = btn.attr('data-comment-id');
+
+            if (!confirm('{{ __t("confirm_delete_comment") ?? "هل أنت تأكد من إمكانية حذف هذا التعليق؟" }}')) {
+                return;
+            }
+
+            btn.prop('disabled', true);
+
+            $.ajax({
+                url: `/comments/${commentId}/delete`,
+                type: 'POST',
+                data: {
+                    _token: '{{ csrf_token() }}'
+                },
+                dataType: 'json',
+                success: function(response) {
+                    if (response.success) {
+                        card.slideUp(300, function() {
+                            $(this).remove();
+                            pageComments = pageComments.filter(c => c.id != commentId);
+                            if (pageComments.length === 0) {
+                                $('#page-comments-list').html('<p id="page-no-comments-placeholder" class="text-center text-sm text-on-surface-variant py-8">{{ __t("no_comments_yet") }}</p>');
+                            }
+                        });
+                    } else {
+                        alert(response.message || '{{ __t("comment_delete_failed") }}');
+                        btn.prop('disabled', false);
+                    }
+                },
+                error: function(xhr) {
+                    console.error(xhr);
+                    alert('{{ __t("comment_delete_error") }}');
+                    btn.prop('disabled', false);
+                }
+            });
+        });
+
+        // Delete Reply Action (AJAX)
+        $(document).on('click', '#page-comments-list .delete-reply-btn', function(e) {
+            e.preventDefault();
+            const btn = $(this);
+            const replyCard = btn.closest('.reply-card');
+            const commentCard = btn.closest('.comment-card');
+            const replyId = btn.attr('data-reply-id');
+
+            if (!confirm('{{ __t("confirm_delete_reply") ?? "هل أنت تأكد من إمكانية حذف هذا الرد؟" }}')) {
+                return;
+            }
+
+            btn.prop('disabled', true);
+
+            $.ajax({
+                url: `/comments/${replyId}/delete`,
+                type: 'POST',
+                data: {
+                    _token: '{{ csrf_token() }}'
+                },
+                dataType: 'json',
+                success: function(response) {
+                    if (response.success) {
+                        replyCard.slideUp(300, function() {
+                            $(this).remove();
+                            const commentId = commentCard.attr('data-comment-id');
+                            const comment = pageComments.find(c => c.id == commentId);
+                            if (comment && comment.replies) {
+                                comment.replies = comment.replies.filter(r => r.id != replyId);
+                                commentCard.find('.replies-count').text(`{{ __t('replies') }} (${comment.replies.length})`);
+                            }
+                        });
+                    } else {
+                        alert(response.message || '{{ __t("reply_delete_failed") }}');
+                        btn.prop('disabled', false);
+                    }
+                },
+                error: function(xhr) {
+                    console.error(xhr);
+                    alert('{{ __t("reply_delete_error") }}');
+                    btn.prop('disabled', false);
+                }
+            });
         });
     });
 </script>
