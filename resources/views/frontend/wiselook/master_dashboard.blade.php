@@ -518,7 +518,8 @@
                 e.preventDefault();
                 const btn = $(this);
                 const postId = btn.attr('data-post-id');
-                const postContent = decodeURIComponent(btn.attr('data-post-content') || '');
+                const rawContentAttr = btn.attr('data-post-content') || '';
+                const postContent = decodeURIComponent(rawContentAttr.replace(/\+/g, '%20'));
                 const shareUrl = window.location.origin + '/post/' + postId;
                 const snippet = postContent ? (postContent.substring(0, 100) + (postContent.length > 100 ? '...' : '')) : '';
                 
