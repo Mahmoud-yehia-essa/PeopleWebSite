@@ -41,7 +41,7 @@
                                     : asset('new_wiselook/uploads/' . $req->sender->profile_picture);
                             }
                         @endphp
-                        <div class="flex items-center justify-between group">
+                        <div class="flex items-center justify-between group friend-request-sidebar-row">
                             <div class="flex items-center space-x-3 space-x-reverse">
                                 <a href="{{ route('profile.edit', $req->sender->id) }}" class="shrink-0">
                                     <img alt="{{ $senderName }}" class="w-10 h-10 rounded-full object-cover border border-outline-variant hover:opacity-85 transition-opacity" src="{{ $senderAvatar }}">
@@ -52,10 +52,10 @@
                                 </div>
                             </div>
                             <div class="flex space-x-1 space-x-reverse shrink-0">
-                                <a href="{{ route('active.friendship', $req->id) }}" class="text-secondary hover:text-primary transition-colors flex items-center justify-center" title="قبول">
+                                <a href="{{ route('frontend.friendships.accept', $req->id) }}" class="text-secondary hover:text-primary transition-colors flex items-center justify-center accept-friendship-sidebar-btn" title="قبول">
                                     <span class="material-symbols-outlined text-[22px]">check_circle</span>
                                 </a>
-                                <a href="{{ route('delete.friendship', $req->id) }}" class="text-error hover:text-red-700 transition-colors flex items-center justify-center" title="رفض">
+                                <a href="{{ route('frontend.friendships.delete', $req->id) }}" class="text-error hover:text-red-700 transition-colors flex items-center justify-center reject-friendship-sidebar-btn" title="رفض">
                                     <span class="material-symbols-outlined text-[22px]">cancel</span>
                                 </a>
                             </div>

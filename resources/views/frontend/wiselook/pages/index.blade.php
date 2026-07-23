@@ -50,10 +50,10 @@
                                 </div>
                             </div>
                             <div class="flex space-x-1 space-x-reverse shrink-0">
-                                <a href="{{ route('active.friendship', $req->id) }}" class="text-secondary hover:text-primary transition-colors flex items-center justify-center accept-friendship-sidebar-btn" title="{{ __t('accept') }}">
+                                <a href="{{ route('frontend.friendships.accept', $req->id) }}" class="text-secondary hover:text-primary transition-colors flex items-center justify-center accept-friendship-sidebar-btn" title="{{ __t('accept') }}">
                                     <span class="material-symbols-outlined text-[22px]">check_circle</span>
                                 </a>
-                                <a href="{{ route('delete.friendship', $req->id) }}" class="text-error hover:text-red-700 transition-colors flex items-center justify-center reject-friendship-sidebar-btn" title="{{ __t('reject') }}">
+                                <a href="{{ route('frontend.friendships.delete', $req->id) }}" class="text-error hover:text-red-700 transition-colors flex items-center justify-center reject-friendship-sidebar-btn" title="{{ __t('reject') }}">
                                     <span class="material-symbols-outlined text-[22px]">cancel</span>
                                 </a>
                             </div>
