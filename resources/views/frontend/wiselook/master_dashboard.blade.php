@@ -522,31 +522,23 @@
                 const textHeader = snippet ? `اقرأ هذا الموضوع الشيق على حكماء العالم:\n"${snippet}"` : 'اقرأ هذا الموضوع الشيق على حكماء العالم';
                 const fullShareText = `${textHeader}\n${shareUrl}`;
 
-                // If native sharing is available (mobile browsers), use it
-                if (navigator.share) {
-                    navigator.share({
-                        title: 'حكماء العالم',
-                        text: fullShareText
-                    }).catch((error) => console.log('Error sharing:', error));
-                } else {
-                    // Fallback: Open custom premium share modal
-                    $('#share-link-input').val(shareUrl);
-                    $('#share-modal-preview-text').text(postContent ? postContent.substring(0, 150) + (postContent.length > 150 ? '...' : '') : 'موضوع مميز على حكماء العالم...');
-                    
-                    // Set href links for social share buttons
-                    $('#share-whatsapp').attr('href', `https://api.whatsapp.com/send?text=${encodeURIComponent(fullShareText)}`);
-                    $('#share-facebook').attr('href', `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`);
-                    $('#share-twitter').attr('href', `https://twitter.com/intent/tweet?text=${encodeURIComponent(fullShareText)}`);
-                    $('#share-linkedin').attr('href', `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`);
+                // Open custom premium share modal (bypassing native navigator.share to prevent browser permission popups)
+                $('#share-link-input').val(shareUrl);
+                $('#share-modal-preview-text').text(postContent ? postContent.substring(0, 150) + (postContent.length > 150 ? '...' : '') : 'موضوع مميز على حكماء العالم...');
+                
+                // Set href links for social share buttons
+                $('#share-whatsapp').attr('href', `https://api.whatsapp.com/send?text=${encodeURIComponent(fullShareText)}`);
+                $('#share-facebook').attr('href', `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`);
+                $('#share-twitter').attr('href', `https://twitter.com/intent/tweet?text=${encodeURIComponent(fullShareText)}`);
+                $('#share-linkedin').attr('href', `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`);
 
-                    // Show Modal
-                    const modal = $('#share-post-modal');
-                    modal.removeClass('hidden').addClass('flex');
-                    $('body').addClass('modal-active');
-                    setTimeout(() => {
-                        modal.addClass('modal-show');
-                    }, 20);
-                }
+                // Show Modal
+                const modal = $('#share-post-modal');
+                modal.removeClass('hidden').addClass('flex');
+                $('body').addClass('modal-active');
+                setTimeout(() => {
+                    modal.addClass('modal-show');
+                }, 20);
             });
 
             // Close Share Modal Events
