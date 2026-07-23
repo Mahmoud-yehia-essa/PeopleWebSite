@@ -68,7 +68,7 @@
                 </div>
                 <div>
                     <h3 class="font-bold text-white" style="font-size:20px; letter-spacing:-0.02em; font-family:inherit;">
-                        {{ __t('wise_committee_ruling_title') }}
+                        تقييم لجنة الحكماء
                     </h3>
                     <p style="color:rgba(255,255,255,0.65); font-size:13px; margin-top:4px; font-weight: 500;">
                         {{ __t('wise_committee_rating_desc', ['count' => $ratingsCount]) }}
@@ -88,7 +88,7 @@
                 box-shadow: 0 4px 10px rgba(0,0,0,0.2);
             ">
                 <span class="material-symbols-outlined" style="font-size:16px; font-variation-settings:'FILL' 1;">verified</span>
-                {{ __t('officially_certified_ruling') }}
+                تقييم معتمد رسمياً
             </span>
         </div>
 

@@ -586,8 +586,8 @@ class TranslationsSeeder extends Seeder
                 'en' => 'Please login or create a new account to comment or reply...',
             ],
             'wisdom_author' => [
-                'ar' => 'صاحب الحكمة',
-                'en' => 'Wisdom Author',
+                'ar' => 'كاتب الموضوع',
+                'en' => 'Topic Author',
             ],
             'wisdom_member' => [
                 'ar' => 'عضو حكماء العالم',
@@ -1078,8 +1078,8 @@ class TranslationsSeeder extends Seeder
                 'en' => 'An error occurred while performing action.',
             ],
             'wisdom_author' => [
-                'ar' => 'كاتب الحكمة',
-                'en' => 'Wisdom Author',
+                'ar' => 'كاتب الموضوع',
+                'en' => 'Topic Author',
             ],
             'post_saved_success' => [
                 'ar' => 'تم حفظ الموضوع في قائمتك بنجاح.',
@@ -1126,20 +1126,20 @@ class TranslationsSeeder extends Seeder
                 'en' => 'wise scholars',
             ],
             'wise_committee_ruling' => [
-                'ar' => 'حكم وتقييم لجنة الحكماء',
-                'en' => 'Sage Committee Ruling',
+                'ar' => 'تقييم لجنة الحكماء',
+                'en' => 'Sage Committee Rating',
             ],
             'wise_committee_ruling_title' => [
-                'ar' => 'حكم وتقييم لجنة الحكماء',
-                'en' => 'Sage Committee Ruling & Rating',
+                'ar' => 'تقييم لجنة الحكماء',
+                'en' => 'Sage Committee Rating',
             ],
             'wise_committee_rating_desc' => [
                 'ar' => 'تقييم رسمي معتمد وموثق من :count حكماء بالمنصة',
                 'en' => 'Official certified rating from :count sages on the platform',
             ],
             'officially_certified_ruling' => [
-                'ar' => 'حكم معتمد رسمياً',
-                'en' => 'Officially Certified Ruling',
+                'ar' => 'تقييم معتمد رسمياً',
+                'en' => 'Officially Certified Rating',
             ],
             'rating_excellent' => [
                 'ar' => 'ممتاز',
