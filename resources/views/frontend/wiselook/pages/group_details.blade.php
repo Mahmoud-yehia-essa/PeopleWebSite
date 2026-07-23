@@ -822,30 +822,23 @@ $(document).ready(function() {
         const textHeader = _gt.join_us_in_group.replace(':group', groupTitle).replace(':desc', groupDesc.substring(0, 100)).replace('\n:url', '').replace(':url', '').trim();
         const fullShareText = `${textHeader}\n${shareUrl}`;
 
-        if (navigator.share) {
-            navigator.share({
-                title: groupTitle,
-                text: fullShareText
-            }).catch((error) => console.log('Error sharing:', error));
-        } else {
-            // Fallback: Open the same premium share modal
-            $('#share-link-input').val(shareUrl);
-            $('#share-modal-preview-text').text(groupDesc ? groupDesc.substring(0, 150) + (groupDesc.length > 150 ? '...' : '') : _gt.group_share_preview.replace(':group', groupTitle));
-            
-            // Set social share hrefs
-            $('#share-whatsapp').attr('href', `https://api.whatsapp.com/send?text=${encodeURIComponent(fullShareText)}`);
-            $('#share-facebook').attr('href', `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`);
-            $('#share-twitter').attr('href', `https://twitter.com/intent/tweet?text=${encodeURIComponent(fullShareText)}`);
-            $('#share-linkedin').attr('href', `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`);
+        // Open custom share modal directly (bypassing native navigator.share to prevent browser permission popups)
+        $('#share-link-input').val(shareUrl);
+        $('#share-modal-preview-text').text(groupDesc ? groupDesc.substring(0, 150) + (groupDesc.length > 150 ? '...' : '') : _gt.group_share_preview.replace(':group', groupTitle));
+        
+        // Set social share hrefs
+        $('#share-whatsapp').attr('href', `https://api.whatsapp.com/send?text=${encodeURIComponent(fullShareText)}`);
+        $('#share-facebook').attr('href', `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`);
+        $('#share-twitter').attr('href', `https://twitter.com/intent/tweet?text=${encodeURIComponent(fullShareText)}`);
+        $('#share-linkedin').attr('href', `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`);
 
-            // Open Modal
-            const modal = $('#share-post-modal');
-            modal.removeClass('hidden').addClass('flex');
-            $('body').addClass('modal-active');
-            setTimeout(() => {
-                modal.addClass('modal-show');
-            }, 20);
-        }
+        // Open Modal
+        const modal = $('#share-post-modal');
+        modal.removeClass('hidden').addClass('flex');
+        $('body').addClass('modal-active');
+        setTimeout(() => {
+            modal.addClass('modal-show');
+        }, 20);
     });
 
     // --- Copy Invite Code Handler ---
