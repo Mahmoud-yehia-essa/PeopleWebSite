@@ -299,16 +299,16 @@
                     <div class="space-y-1">
                         <label class="block font-label-md text-xs font-bold text-on-surface-variant px-1" style="text-align: {{ $dir === 'rtl' ? 'right' : 'left' }};">{{ __('وسيلة الاستلام') }}</label>
                         <div class="flex gap-2">
-                            <div class="fb-method-card active" onclick="fbSelectFlow('SMS', this)">
+                            <div class="fb-method-card" onclick="fbSelectFlow('SMS', this)">
                                 <i class="fa-solid fa-comment-sms"></i>
                                 <span>SMS</span>
                             </div>
-                            <div class="fb-method-card" onclick="fbSelectFlow('WHATSAPP', this)">
+                            <div class="fb-method-card active" onclick="fbSelectFlow('WHATSAPP', this)">
                                 <i class="fa-brands fa-whatsapp"></i>
                                 <span>واتساب</span>
                             </div>
                         </div>
-                        <input type="hidden" id="fb-flow-type" value="SMS">
+                        <input type="hidden" id="fb-flow-type" value="WHATSAPP">
                     </div>
 
                     <!-- reCAPTCHA widget -->

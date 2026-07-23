@@ -397,16 +397,16 @@
                 <div class="form-group">
                     <label class="form-label">{{ __('وسيلة الاستلام') }}</label>
                     <div class="method-selector">
-                        <div class="method-card active" onclick="selectFlow('SMS', this)">
+                        <div class="method-card" onclick="selectFlow('SMS', this)">
                             <i class="fa-solid fa-comment-sms"></i>
                             <span>SMS</span>
                         </div>
-                        <div class="method-card" onclick="selectFlow('WHATSAPP', this)">
+                        <div class="method-card active" onclick="selectFlow('WHATSAPP', this)">
                             <i class="fa-brands fa-whatsapp"></i>
                             <span>واتساب</span>
                         </div>
                     </div>
-                    <input type="hidden" id="flow_type" value="SMS">
+                    <input type="hidden" id="flow_type" value="WHATSAPP">
                 </div>
 
                 <button type="submit" class="btn-submit" id="btn-send-otp">

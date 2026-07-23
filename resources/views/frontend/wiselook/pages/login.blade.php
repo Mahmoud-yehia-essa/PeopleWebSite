@@ -109,11 +109,17 @@
     <!-- Toastr CSS -->
     <link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.css" >
     <style>
-        body {
+        html, body {
             font-family: 'Tajawal', sans-serif;
             background-color: #f8faf5;
             margin: 0;
-            overflow: hidden;
+            padding: 0;
+            min-height: 100%;
+        }
+        @media (min-width: 1024px) {
+            body {
+                overflow: hidden;
+            }
         }
         .font-headline-md { font-family: 'Cairo', sans-serif; }
         .font-headline-lg { font-family: 'Cairo', sans-serif; }
@@ -306,7 +312,7 @@
 <body class="bg-background text-on-surface">
 <!-- Global Preloader -->
 @include('frontend.wiselook.body.preloader')
-<main class="flex flex-col lg:flex-row min-h-screen w-full overflow-hidden">
+<main class="flex flex-col lg:flex-row min-h-screen w-full overflow-x-hidden lg:overflow-hidden">
     <!-- Left Half: Branding & Illustration (Desktop Only) -->
     <section class="hidden lg:flex lg:w-1/2 relative bg-gradient-to-tr from-[#002112] via-[#1a5237] to-[#003a23] items-center justify-center p-12 overflow-hidden z-0">
         <!-- Background Decorative Elements -->
@@ -329,7 +335,7 @@
     </section>
 
     <!-- Right Half: Authentication -->
-    <section class="w-full lg:w-1/2 min-h-screen bg-surface flex flex-col items-center justify-center p-4 sm:p-8 overflow-y-auto custom-scroll relative">
+    <section class="w-full lg:w-1/2 min-h-screen bg-surface flex flex-col items-center justify-start lg:justify-center p-4 sm:p-8 py-8 sm:py-12 overflow-y-auto custom-scroll relative my-auto lg:my-0">
         <!-- Language Switcher in Top Corner -->
         <div class="absolute top-4 {{ $dir === 'rtl' ? 'left-4' : 'right-4' }} z-50">
             @if($activeLanguages->count() > 1 && $currentLang)
@@ -552,7 +558,7 @@
                 </a>
                 <a href="{{ $isSignup ? route('firebase.phone.register') : route('firebase.phone.login') }}" id="phoneAuthLink" class="flex items-center justify-center gap-1.5 py-3 border border-outline-variant/60 rounded-xl font-label-md text-xs text-on-surface hover:bg-surface-container-low transition-all">
                     <span class="material-symbols-outlined text-[18px] text-primary">verified</span>
-                    <span id="phoneAuthBtnText">{{ $isSignup ? 'إنشاء حساب برقم الهاتف' : (__t('otp_login') ?: 'OTP تسجيل') }}</span>
+                    <span id="phoneAuthBtnText">{{ $isSignup ? (__t('signup_with_phone') ?: 'إنشاء حساب برقم الهاتف') : (__t('login_with_phone') ?: 'تسجيل الدخول برقم الهاتف') }}</span>
                 </a>
             </div>
             
@@ -698,7 +704,7 @@
             const phoneAuthBtnText = document.getElementById('phoneAuthBtnText');
             if (phoneAuthLink) {
                 phoneAuthLink.href = "{{ route('firebase.phone.login') }}";
-                if (phoneAuthBtnText) phoneAuthBtnText.textContent = "{{ __t('otp_login') ?: 'OTP تسجيل' }}";
+                if (phoneAuthBtnText) phoneAuthBtnText.textContent = "{{ __t('login_with_phone') ?: 'تسجيل الدخول برقم الهاتف' }}";
             }
         }
 
