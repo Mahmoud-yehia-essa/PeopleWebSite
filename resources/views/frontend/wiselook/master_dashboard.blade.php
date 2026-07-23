@@ -150,13 +150,13 @@
         }
 
         /* Share & Delete Modal Transitions */
-        #share-post-modal, #delete-post-modal {
+        #share-post-modal, #delete-post-modal, #delete-action-modal {
             transition: visibility 0.3s;
         }
-        #share-post-modal.modal-show .modal-backdrop, #delete-post-modal.modal-show .modal-backdrop {
+        #share-post-modal.modal-show .modal-backdrop, #delete-post-modal.modal-show .modal-backdrop, #delete-action-modal.modal-show .modal-backdrop {
             opacity: 1;
         }
-        #share-post-modal.modal-show .modal-container, #delete-post-modal.modal-show .modal-container {
+        #share-post-modal.modal-show .modal-container, #delete-post-modal.modal-show .modal-container, #delete-action-modal.modal-show .modal-container {
             transform: translateY(0) scale(1);
             opacity: 1;
         }
@@ -931,8 +931,73 @@
                 <button type="button" id="confirm-delete-post-btn" class="flex-grow bg-error text-white py-2.5 rounded-full text-xs font-bold hover:bg-error/90 transition-all shadow-sm">{{ __t('confirm_delete') }}</button>
                 <button type="button" id="cancel-delete-post-btn" class="flex-grow py-2.5 rounded-full border border-outline-variant text-xs font-bold text-on-surface-variant hover:bg-surface-container-high transition-all">{{ __t('cancel') }}</button>
             </div>
+    <!-- Reusable Action Delete Confirmation Modal (Comments, Replies, etc.) -->
+    <div id="delete-action-modal" class="fixed inset-0 z-[110] hidden items-center justify-center p-4">
+        <!-- Backdrop with high-end glassmorphism -->
+        <div class="modal-backdrop absolute inset-0 bg-slate-900/60 backdrop-blur-md opacity-0 transition-opacity duration-300"></div>
+        
+        <!-- Modal Content Container -->
+        <div class="modal-container relative max-w-sm w-full bg-white/95 backdrop-blur-xl rounded-3xl border border-primary/10 shadow-[0_25px_50px_-12px_rgba(0,58,35,0.25)] p-6 z-10 translate-y-10 scale-95 opacity-0 transition-all duration-300 text-center overflow-hidden" style="direction: rtl;">
+            <div class="w-12 h-12 rounded-full bg-error/10 text-error flex items-center justify-center mb-4 mx-auto">
+                <span class="material-symbols-outlined text-[26px]">warning</span>
+            </div>
+            
+            <h3 class="font-headline-md text-base font-bold text-primary mb-2" id="delete-action-modal-title">حذف التعليق</h3>
+            <p class="text-xs text-on-surface-variant leading-relaxed mb-6" id="delete-action-modal-msg">هل أنت متأكد من رغبتك في حذف هذا التعليق نهائياً؟ لا يمكن التراجع عن هذا الإجراء لاحقاً.</p>
+            
+            <div class="flex gap-3 w-full">
+                <button type="button" id="confirm-delete-action-btn" class="flex-grow bg-error text-white py-2.5 rounded-full text-xs font-bold hover:bg-error/90 transition-all shadow-sm">تأكيد الحذف</button>
+                <button type="button" id="cancel-delete-action-btn" class="flex-grow py-2.5 rounded-full border border-outline-variant text-xs font-bold text-on-surface-variant hover:bg-surface-container-high transition-all">إلغاء</button>
+            </div>
         </div>
     </div>
+
+    <script>
+        // Global Reusable Delete Action Modal Handlers
+        let onConfirmDeleteActionCallback = null;
+
+        window.openDeleteActionModal = function(title, message, callback) {
+            onConfirmDeleteActionCallback = callback;
+            if (title) $('#delete-action-modal-title').text(title);
+            if (message) $('#delete-action-modal-msg').text(message);
+            $('#confirm-delete-action-btn').prop('disabled', false).text('تأكيد الحذف');
+
+            const modal = $('#delete-action-modal');
+            modal.removeClass('hidden').addClass('flex');
+            $('body').addClass('modal-active');
+            setTimeout(() => {
+                modal.addClass('modal-show');
+            }, 10);
+        };
+
+        window.closeDeleteActionModal = function() {
+            const modal = $('#delete-action-modal');
+            modal.removeClass('modal-show');
+            setTimeout(() => {
+                modal.removeClass('flex').addClass('hidden');
+                if ($('#comments-modal.modal-show').length === 0 && $('#supporters-modal.modal-show').length === 0 && $('#delete-post-modal.modal-show').length === 0) {
+                    $('body').removeClass('modal-active');
+                }
+                onConfirmDeleteActionCallback = null;
+            }, 300);
+        };
+
+        $(document).on('click', '#cancel-delete-action-btn, #delete-action-modal .modal-backdrop', function() {
+            window.closeDeleteActionModal();
+        });
+
+        $(document).on('click', '#confirm-delete-action-btn', function() {
+            if (typeof onConfirmDeleteActionCallback === 'function') {
+                const btn = $(this);
+                btn.prop('disabled', true).text('جاري الحذف...');
+                onConfirmDeleteActionCallback(function() {
+                    window.closeDeleteActionModal();
+                }, function() {
+                    btn.prop('disabled', false).text('تأكيد الحذف');
+                });
+            }
+        });
+    </script>
 
     @stack('scripts')
 </body>

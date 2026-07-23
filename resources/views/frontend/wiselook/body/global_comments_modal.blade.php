@@ -906,51 +906,55 @@ $(document).ready(function() {
         const card = btn.closest('.comment-card');
         const commentId = btn.attr('data-comment-id');
 
-        if (!confirm('هل أنت تأكد من إمكانية حذف هذا التعليق؟')) {
-            return;
-        }
-
-        btn.prop('disabled', true);
         let url = isGroupSubject ? `/groups/subjects/comments/${commentId}/delete` : `/comments/${commentId}/delete`;
 
-        $.ajax({
-            url: url,
-            type: 'POST',
-            data: {
-                _token: '{{ csrf_token() }}'
-            },
-            dataType: 'json',
-            success: function(response) {
-                if (response.success) {
-                    card.slideUp(300, function() {
-                        $(this).remove();
-                        activeComments = activeComments.filter(c => c.id != commentId);
-                        if (activeComments.length === 0) {
-                            $('#modal-comments-list').html(`<p class="text-center text-sm text-on-surface-variant py-8">${_t.noDiscussionsYet}</p>`);
+        if (typeof window.openDeleteActionModal === 'function') {
+            window.openDeleteActionModal(
+                'حذف التعليق',
+                'هل أنت متأكد من رغبتك في حذف هذا التعليق نهائياً؟ لا يمكن التراجع عن هذا الإجراء لاحقاً.',
+                function(done, fail) {
+                    $.ajax({
+                        url: url,
+                        type: 'POST',
+                        data: {
+                            _token: '{{ csrf_token() }}'
+                        },
+                        dataType: 'json',
+                        success: function(response) {
+                            if (response.success) {
+                                done();
+                                card.slideUp(300, function() {
+                                    $(this).remove();
+                                    activeComments = activeComments.filter(c => c.id != commentId);
+                                    if (activeComments.length === 0) {
+                                        $('#modal-comments-list').html(`<p class="text-center text-sm text-on-surface-variant py-8">${_t.noDiscussionsYet}</p>`);
+                                    }
+                                });
+
+                                // Update comment count on post card
+                                if (activePostId) {
+                                    const countSpan = $(`.open-discussion-btn[data-post-id="${activePostId}"] .font-label-sm`);
+                                    if (countSpan.length) {
+                                        let currentCount = parseInt(countSpan.text());
+                                        if (!isNaN(currentCount) && currentCount > 0) {
+                                            countSpan.text((currentCount - 1) + ' نقاش');
+                                        }
+                                    }
+                                }
+                            } else {
+                                alert(response.message || 'فشل حذف التعليق.');
+                                fail();
+                            }
+                        },
+                        error: function(xhr) {
+                            console.error(xhr);
+                            alert('حدث خطأ أثناء حذف التعليق.');
+                            fail();
                         }
                     });
-
-                    // Update comment count on post card
-                    if (activePostId) {
-                        const countSpan = $(`.open-discussion-btn[data-post-id="${activePostId}"] .font-label-sm`);
-                        if (countSpan.length) {
-                            let currentCount = parseInt(countSpan.text());
-                            if (!isNaN(currentCount) && currentCount > 0) {
-                                countSpan.text((currentCount - 1) + ' نقاش');
-                            }
-                        }
-                    }
-                } else {
-                    alert(response.message || 'فشل حذف التعليق.');
-                    btn.prop('disabled', false);
                 }
-            },
-            error: function(xhr) {
-                console.error(xhr);
-                alert('حدث خطأ أثناء حذف التعليق.');
-                btn.prop('disabled', false);
-            }
-        });
+            );
+        }
     });
 
     // Delete Reply Action
@@ -961,42 +965,46 @@ $(document).ready(function() {
         const commentCard = btn.closest('.comment-card');
         const replyId = btn.attr('data-reply-id');
 
-        if (!confirm('هل أنت تأكد من إمكانية حذف هذا الرد؟')) {
-            return;
-        }
-
-        btn.prop('disabled', true);
         let url = isGroupSubject ? `/groups/subjects/comments/${replyId}/delete` : `/comments/${replyId}/delete`;
 
-        $.ajax({
-            url: url,
-            type: 'POST',
-            data: {
-                _token: '{{ csrf_token() }}'
-            },
-            dataType: 'json',
-            success: function(response) {
-                if (response.success) {
-                    replyCard.slideUp(300, function() {
-                        $(this).remove();
-                        const commentId = commentCard.attr('data-comment-id');
-                        const comment = activeComments.find(c => c.id == commentId);
-                        if (comment && comment.replies) {
-                            comment.replies = comment.replies.filter(r => r.id != replyId);
-                            commentCard.find('.replies-count').text(`${_t.repliesLabel} (${comment.replies.length})`);
+        if (typeof window.openDeleteActionModal === 'function') {
+            window.openDeleteActionModal(
+                'حذف الرد',
+                'هل أنت متأكد من رغبتك في حذف هذا الرد نهائياً؟ لا يمكن التراجع عن هذا الإجراء لاحقاً.',
+                function(done, fail) {
+                    $.ajax({
+                        url: url,
+                        type: 'POST',
+                        data: {
+                            _token: '{{ csrf_token() }}'
+                        },
+                        dataType: 'json',
+                        success: function(response) {
+                            if (response.success) {
+                                done();
+                                replyCard.slideUp(300, function() {
+                                    $(this).remove();
+                                    const commentId = commentCard.attr('data-comment-id');
+                                    const comment = activeComments.find(c => c.id == commentId);
+                                    if (comment && comment.replies) {
+                                        comment.replies = comment.replies.filter(r => r.id != replyId);
+                                        commentCard.find('.replies-count').text(`${_t.repliesLabel} (${comment.replies.length})`);
+                                    }
+                                });
+                            } else {
+                                alert(response.message || 'فشل حذف الرد.');
+                                fail();
+                            }
+                        },
+                        error: function(xhr) {
+                            console.error(xhr);
+                            alert('حدث خطأ أثناء حذف الرد.');
+                            fail();
                         }
                     });
-                } else {
-                    alert(response.message || 'فشل حذف الرد.');
-                    btn.prop('disabled', false);
                 }
-            },
-            error: function(xhr) {
-                console.error(xhr);
-                alert('حدث خطأ أثناء حذف الرد.');
-                btn.prop('disabled', false);
-            }
-        });
+            );
+        }
     });
 
     // --- Image Viewer Modal Handlers ---
