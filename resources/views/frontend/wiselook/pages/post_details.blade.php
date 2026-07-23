@@ -817,49 +817,52 @@
             }
         });
 
-        // Delete Comment Action (AJAX)
+        // Delete Comment Action (AJAX with custom confirmation modal)
         $(document).on('click', '#page-comments-list .delete-comment-btn', function(e) {
             e.preventDefault();
             const btn = $(this);
             const card = btn.closest('.comment-card');
             const commentId = btn.attr('data-comment-id');
 
-            if (!confirm('{{ __t("confirm_delete_comment") ?? "هل أنت تأكد من إمكانية حذف هذا التعليق؟" }}')) {
-                return;
-            }
-
-            btn.prop('disabled', true);
-
-            $.ajax({
-                url: `/comments/${commentId}/delete`,
-                type: 'POST',
-                data: {
-                    _token: '{{ csrf_token() }}'
-                },
-                dataType: 'json',
-                success: function(response) {
-                    if (response.success) {
-                        card.slideUp(300, function() {
-                            $(this).remove();
-                            pageComments = pageComments.filter(c => c.id != commentId);
-                            if (pageComments.length === 0) {
-                                $('#page-comments-list').html('<p id="page-no-comments-placeholder" class="text-center text-sm text-on-surface-variant py-8">{{ __t("no_comments_yet") }}</p>');
+            if (typeof window.openDeleteActionModal === 'function') {
+                window.openDeleteActionModal(
+                    'حذف التعليق',
+                    'هل أنت متأكد من رغبتك في حذف هذا التعليق نهائياً؟ لا يمكن التراجع عن هذا الإجراء لاحقاً.',
+                    function(done, fail) {
+                        $.ajax({
+                            url: `/comments/${commentId}/delete`,
+                            type: 'POST',
+                            data: {
+                                _token: '{{ csrf_token() }}'
+                            },
+                            dataType: 'json',
+                            success: function(response) {
+                                if (response.success) {
+                                    done();
+                                    card.slideUp(300, function() {
+                                        $(this).remove();
+                                        pageComments = pageComments.filter(c => c.id != commentId);
+                                        if (pageComments.length === 0) {
+                                            $('#page-comments-list').html('<p id="page-no-comments-placeholder" class="text-center text-sm text-on-surface-variant py-8">{{ __t("no_comments_yet") }}</p>');
+                                        }
+                                    });
+                                } else {
+                                    alert(response.message || '{{ __t("comment_delete_failed") }}');
+                                    fail();
+                                }
+                            },
+                            error: function(xhr) {
+                                console.error(xhr);
+                                alert('{{ __t("comment_delete_error") }}');
+                                fail();
                             }
                         });
-                    } else {
-                        alert(response.message || '{{ __t("comment_delete_failed") }}');
-                        btn.prop('disabled', false);
                     }
-                },
-                error: function(xhr) {
-                    console.error(xhr);
-                    alert('{{ __t("comment_delete_error") }}');
-                    btn.prop('disabled', false);
-                }
-            });
+                );
+            }
         });
 
-        // Delete Reply Action (AJAX)
+        // Delete Reply Action (AJAX with custom confirmation modal)
         $(document).on('click', '#page-comments-list .delete-reply-btn', function(e) {
             e.preventDefault();
             const btn = $(this);
@@ -867,41 +870,44 @@
             const commentCard = btn.closest('.comment-card');
             const replyId = btn.attr('data-reply-id');
 
-            if (!confirm('{{ __t("confirm_delete_reply") ?? "هل أنت تأكد من إمكانية حذف هذا الرد؟" }}')) {
-                return;
-            }
-
-            btn.prop('disabled', true);
-
-            $.ajax({
-                url: `/comments/${replyId}/delete`,
-                type: 'POST',
-                data: {
-                    _token: '{{ csrf_token() }}'
-                },
-                dataType: 'json',
-                success: function(response) {
-                    if (response.success) {
-                        replyCard.slideUp(300, function() {
-                            $(this).remove();
-                            const commentId = commentCard.attr('data-comment-id');
-                            const comment = pageComments.find(c => c.id == commentId);
-                            if (comment && comment.replies) {
-                                comment.replies = comment.replies.filter(r => r.id != replyId);
-                                commentCard.find('.replies-count').text(`{{ __t('replies') }} (${comment.replies.length})`);
+            if (typeof window.openDeleteActionModal === 'function') {
+                window.openDeleteActionModal(
+                    'حذف الرد',
+                    'هل أنت متأكد من رغبتك في حذف هذا الرد نهائياً؟ لا يمكن التراجع عن هذا الإجراء لاحقاً.',
+                    function(done, fail) {
+                        $.ajax({
+                            url: `/comments/${replyId}/delete`,
+                            type: 'POST',
+                            data: {
+                                _token: '{{ csrf_token() }}'
+                            },
+                            dataType: 'json',
+                            success: function(response) {
+                                if (response.success) {
+                                    done();
+                                    replyCard.slideUp(300, function() {
+                                        $(this).remove();
+                                        const commentId = commentCard.attr('data-comment-id');
+                                        const comment = pageComments.find(c => c.id == commentId);
+                                        if (comment && comment.replies) {
+                                            comment.replies = comment.replies.filter(r => r.id != replyId);
+                                            commentCard.find('.replies-count').text(`{{ __t('replies') }} (${comment.replies.length})`);
+                                        }
+                                    });
+                                } else {
+                                    alert(response.message || '{{ __t("reply_delete_failed") }}');
+                                    fail();
+                                }
+                            },
+                            error: function(xhr) {
+                                console.error(xhr);
+                                alert('{{ __t("reply_delete_error") }}');
+                                fail();
                             }
                         });
-                    } else {
-                        alert(response.message || '{{ __t("reply_delete_failed") }}');
-                        btn.prop('disabled', false);
                     }
-                },
-                error: function(xhr) {
-                    console.error(xhr);
-                    alert('{{ __t("reply_delete_error") }}');
-                    btn.prop('disabled', false);
-                }
-            });
+                );
+            }
         });
     });
 </script>
