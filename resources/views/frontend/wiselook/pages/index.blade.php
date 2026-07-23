@@ -366,23 +366,6 @@
                             <!-- Mention Dropdown -->
                             <div id="mention-dropdown" class="absolute hidden bottom-auto top-full right-0 mt-1.5 bg-white rounded-xl border border-primary/10 shadow-lg z-50 w-64 max-h-60 overflow-y-auto text-right"></div>
                             
-                            <!-- Emoji Picker Dropdown -->
-                            <div id="emoji-picker-dropdown" class="absolute hidden bottom-auto top-full right-0 mt-1.5 bg-white rounded-xl border border-primary/10 shadow-lg z-50 w-72 overflow-hidden text-right">
-                                <!-- Emoji Categories Tabs -->
-                                <div class="flex border-b border-primary/5 bg-surface-container-low p-2 gap-1 justify-between" style="direction: rtl;">
-                                    <button type="button" class="emoji-cat-btn active text-primary bg-primary/5 p-1.5 rounded-lg transition-all flex-grow text-center text-[15px] cursor-pointer" data-category="smileys" title="وجوه وتعبيرات">😂</button>
-                                    <button type="button" class="emoji-cat-btn text-on-surface-variant hover:bg-primary/5 p-1.5 rounded-lg transition-all flex-grow text-center text-[15px] cursor-pointer" data-category="animals" title="حيوانات وطبيعة">🐱</button>
-                                    <button type="button" class="emoji-cat-btn text-on-surface-variant hover:bg-primary/5 p-1.5 rounded-lg transition-all flex-grow text-center text-[15px] cursor-pointer" data-category="food" title="طعام وشراب">🍕</button>
-                                    <button type="button" class="emoji-cat-btn text-on-surface-variant hover:bg-primary/5 p-1.5 rounded-lg transition-all flex-grow text-center text-[15px] cursor-pointer" data-category="activities" title="أنشطة وسفر">⚽</button>
-                                    <button type="button" class="emoji-cat-btn text-on-surface-variant hover:bg-primary/5 p-1.5 rounded-lg transition-all flex-grow text-center text-[15px] cursor-pointer" data-category="objects" title="رموز وأشياء">💡</button>
-                                </div>
-                                
-                                <!-- Emoji Grid Area -->
-                                <div class="p-3 max-h-48 overflow-y-auto grid grid-cols-6 gap-2 text-center" id="emoji-grid-container" style="direction: rtl;">
-                                    <!-- Emojis will be dynamically rendered here -->
-                                </div>
-                            </div>
-                            
                             <!-- Media Previews -->
                             <div class="hidden mt-3 relative rounded-xl overflow-hidden border border-primary/10 bg-surface-container-low max-h-60 flex items-center justify-center shadow-inner" id="image-preview-container">
                                 <img id="frontend-image-preview" src="" class="max-h-full max-w-full object-contain">
@@ -434,7 +417,7 @@
 
                         <!-- Actions Area -->
                         <div class="flex justify-between items-center mt-5 pt-4 border-t border-primary/5">
-                            <div class="flex items-center gap-1" id="media-buttons-container">
+                            <div class="flex items-center gap-1 relative" id="media-buttons-container">
                                 <!-- Hidden File Pickers -->
                                 <input type="file" name="image" id="frontend_image_input" accept="image/*" class="hidden">
                                 <input type="file" name="video" id="frontend_video_input" accept="video/*" class="hidden">
@@ -448,6 +431,23 @@
                                 <button type="button" id="trigger-emoji-picker" class="text-on-surface-variant/80 hover:text-amber-500 hover:bg-amber-50 p-2.5 rounded-full transition-all duration-200 cursor-pointer flex items-center justify-center" title="إدراج إيموجي">
                                     <span class="material-symbols-outlined text-[20px]">mood</span>
                                 </button>
+
+                                <!-- Emoji Picker Dropdown (Positioned ABOVE trigger button) -->
+                                <div id="emoji-picker-dropdown" class="absolute hidden bottom-full mb-2.5 right-0 bg-white rounded-2xl border border-primary/10 shadow-[0_15px_35px_-5px_rgba(0,0,0,0.15)] z-50 w-72 sm:w-80 max-w-[calc(100vw-32px)] overflow-hidden text-right">
+                                    <!-- Emoji Categories Tabs -->
+                                    <div class="flex border-b border-primary/5 bg-surface-container-low p-2 gap-1 justify-between" style="direction: rtl;">
+                                        <button type="button" class="emoji-cat-btn active text-primary bg-primary/5 p-1.5 rounded-lg transition-all flex-grow text-center text-[15px] cursor-pointer" data-category="smileys" title="وجوه وتعبيرات">😂</button>
+                                        <button type="button" class="emoji-cat-btn text-on-surface-variant hover:bg-primary/5 p-1.5 rounded-lg transition-all flex-grow text-center text-[15px] cursor-pointer" data-category="animals" title="حيوانات وطبيعة">🐱</button>
+                                        <button type="button" class="emoji-cat-btn text-on-surface-variant hover:bg-primary/5 p-1.5 rounded-lg transition-all flex-grow text-center text-[15px] cursor-pointer" data-category="food" title="طعام وشراب">🍕</button>
+                                        <button type="button" class="emoji-cat-btn text-on-surface-variant hover:bg-primary/5 p-1.5 rounded-lg transition-all flex-grow text-center text-[15px] cursor-pointer" data-category="activities" title="أنشطة وسفر">⚽</button>
+                                        <button type="button" class="emoji-cat-btn text-on-surface-variant hover:bg-primary/5 p-1.5 rounded-lg transition-all flex-grow text-center text-[15px] cursor-pointer" data-category="objects" title="رموز وأشياء">💡</button>
+                                    </div>
+                                    
+                                    <!-- Emoji Grid Area -->
+                                    <div class="p-3 max-h-48 overflow-y-auto grid grid-cols-6 gap-2 text-center" id="emoji-grid-container" style="direction: rtl;">
+                                        <!-- Emojis will be dynamically rendered here -->
+                                    </div>
+                                </div>
                             </div>
                             
                             <!-- Dummy space-holder for alignment when poll fields are active -->
