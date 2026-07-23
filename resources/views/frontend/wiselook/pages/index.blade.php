@@ -777,7 +777,7 @@ $(document).ready(function() {
     $(document).on('click', '#close-welcome-modal-btn, #start-welcome-journey-btn, #welcome-modal-backdrop', function() {
         closeWelcomeModal();
     });
-$(document).ready(function() {
+
     // Handle Sidebar Friend Request Actions (Accept / Reject) via AJAX
     $(document).on('click', '.accept-friendship-sidebar-btn, .reject-friendship-sidebar-btn', function(e) {
         e.preventDefault();
