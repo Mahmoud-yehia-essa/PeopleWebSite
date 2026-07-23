@@ -210,11 +210,6 @@
                 </div>
             </article>
 
-            {{-- ============================================================
-                 قسم تقييم لجنة الحكماء (يظهر فقط إذا كان هناك تقييمات)
-                 ============================================================ --}}
-            @include('frontend.wiselook.partials.wise_committee_rating')
-
             <!-- Comments Section -->
             <div class="bg-surface-container-lowest/70 backdrop-blur-[20px] rounded-xl border border-primary/10 p-6 shadow-sm">
 
@@ -263,13 +258,18 @@
                     </div>
                 @endauth
             </div>
+
+            {{-- ============================================================
+                 قسم تقييم لجنة الحكماء (يظهر فقط إذا كان هناك تقييمات)
+                 ============================================================ --}}
+            @include('frontend.wiselook.partials.wise_committee_rating')
         </section>
         
         <!-- Left Column: Sidebar details -->
         <aside class="lg:col-span-3 order-1 lg:order-2 space-y-6 lg:sticky lg:top-24 self-start {{ $dir === 'rtl' ? 'text-right' : 'text-left' }}">
             <!-- Author Card Widget -->
             <div class="bg-surface-container-lowest/70 backdrop-blur-[20px] rounded-xl border border-primary/10 p-6 shadow-sm">
-                <h4 class="font-title-lg text-sm font-bold text-primary mb-4 pb-2 border-b border-primary/5">{{ __t('wisdom_author') }}</h4>
+                <h4 class="font-title-lg text-sm font-bold text-primary mb-4 pb-2 border-b border-primary/5">{{ __t('topic_author') ?? 'كاتب الموضوع' }}</h4>
                 <div class="flex flex-col items-center text-center space-y-3">
                     @if($post->user)
                         <a href="{{ route('profile.edit', $post->user->id) }}">
@@ -279,7 +279,25 @@
                             <a href="{{ route('profile.edit', $post->user->id) }}" class="hover:underline">
                                 <h5 class="font-headline-lg-mobile text-base font-bold text-primary">{{ $fullName }}</h5>
                             </a>
-                            <p class="text-xs text-on-surface-variant mt-1">{{ $post->user->role == 'admin' ? __t('platform_admin') : __t('wisdom_member') }}</p>
+                            <div class="mt-1 flex justify-center items-center">
+                                @if($post->user->rank)
+                                    @php
+                                        $authorRankPhoto = $post->user->rank->photo;
+                                        $authorRankPhotoPath = null;
+                                        if (!empty($authorRankPhoto) && file_exists(public_path('upload/rankings/' . $authorRankPhoto))) {
+                                            $authorRankPhotoPath = asset('upload/rankings/' . $authorRankPhoto);
+                                        }
+                                    @endphp
+                                    <span class="inline-flex items-center gap-1.5" style="display: inline-flex; align-items: center; gap: 4px; vertical-align: middle;">
+                                        @if($authorRankPhotoPath)
+                                            <img src="{{ $authorRankPhotoPath }}" alt="{{ __t($post->user->rank->rank_name) }}" style="width: 16px; height: 16px; object-fit: contain;">
+                                        @endif
+                                        <span class="font-bold text-xs" style="color: #cda225; text-shadow: 0 1px 2px rgba(0,0,0,0.15);">{{ __t($post->user->rank->rank_name) }}</span>
+                                    </span>
+                                @else
+                                    <span class="font-label-sm text-xs text-on-surface-variant">{{ $post->user->role == 'admin' ? __t('platform_admin') : __t('honorary_member') }}</span>
+                                @endif
+                            </div>
                         </div>
                     @else
                         <img alt="{{ $fullName }}" class="w-20 h-20 rounded-full object-cover border-4 border-outline-variant" src="{{ $avatarUrl }}">
@@ -315,7 +333,7 @@
                     {{-- عنوان --}}
                     <div class="flex items-center gap-2 mb-4">
                         <span class="material-symbols-outlined" style="font-size:18px; color:#d4af37; font-variation-settings:'FILL' 0,'wght' 300;">gavel</span>
-                        <span style="color:rgba(255,255,255,0.85); font-size:13px; font-weight:700;">{{ __t('wise_committee_ruling') }}</span>
+                        <span style="color:rgba(255,255,255,0.85); font-size:13px; font-weight:700;">تقييم لجنة الحكماء</span>
                     </div>
 
                     {{-- متوسط الدرجة --}}
@@ -354,15 +372,6 @@
                 </div>
             </a>
             @endif
-
-            <!-- Platform Guideline Widget -->
-            <div class="bg-surface-container-lowest/70 backdrop-blur-[20px] rounded-xl border border-primary/10 p-6 shadow-sm">
-
-                <h4 class="font-title-lg text-sm font-bold text-primary mb-3">{{ __t('wise_world_board') }}</h4>
-                <p class="font-body-md text-xs text-on-surface-variant leading-relaxed">
-                    {{ __t('wise_world_board_desc') }}
-                </p>
-            </div>
         </aside>
     </div>
 </div>
