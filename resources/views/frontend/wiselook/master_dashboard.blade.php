@@ -149,17 +149,17 @@
             background: #717973;
         }
 
-        /* Share & Delete Modal Transitions */
-        #share-post-modal, #delete-post-modal, #delete-action-modal {
-            transition: visibility 0.3s;
+        /* Share, Delete & Welcome Modal Transitions */
+        #share-post-modal, #delete-post-modal, #delete-action-modal, #welcome-modal {
+            transition: visibility 0.4s;
         }
-        #share-post-modal.modal-show, #delete-post-modal.modal-show, #delete-action-modal.modal-show {
+        #share-post-modal.modal-show, #delete-post-modal.modal-show, #delete-action-modal.modal-show, #welcome-modal.modal-show {
             display: flex !important;
         }
-        #share-post-modal.modal-show .modal-backdrop, #delete-post-modal.modal-show .modal-backdrop, #delete-action-modal.modal-show .modal-backdrop {
+        #share-post-modal.modal-show .modal-backdrop, #delete-post-modal.modal-show .modal-backdrop, #delete-action-modal.modal-show .modal-backdrop, #welcome-modal.modal-show .modal-backdrop {
             opacity: 1 !important;
         }
-        #share-post-modal.modal-show .modal-container, #delete-post-modal.modal-show .modal-container, #delete-action-modal.modal-show .modal-container {
+        #share-post-modal.modal-show .modal-container, #delete-post-modal.modal-show .modal-container, #delete-action-modal.modal-show .modal-container, #welcome-modal.modal-show .modal-container {
             transform: translateY(0) scale(1) !important;
             opacity: 1 !important;
         }
