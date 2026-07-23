@@ -13,54 +13,59 @@
     $dropdownAlign = $dir === 'rtl' ? 'left-0 origin-top-left text-right' : 'right-0 origin-top-right text-left';
 @endphp
 <!-- Sidebar Mobile Backdrop -->
-<div id="sidebar-backdrop" class="fixed inset-0 bg-primary/20 backdrop-blur-sm z-30 hidden opacity-0 transition-opacity duration-300"></div>
+<div id="sidebar-backdrop" class="fixed inset-0 bg-primary/20 backdrop-blur-sm z-[60] hidden opacity-0 transition-opacity duration-300"></div>
 
 <!-- SideNavBar (Visible on Desktop, Drawer on Mobile) -->
-<nav id="main-sidebar" class="flex flex-col h-screen fixed {{ $dir === 'rtl' ? 'right-0 border-l' : 'left-0 border-r' }} w-72 top-0 border-primary/5 bg-surface-container-low z-40 py-stack-md transition-all duration-300">
-    <div class="px-6 mb-4 flex items-center gap-4">
-        @auth
-            @php
-                $authUser = Auth::user();
-                $avatar = url('upload/no_image.jpg');
-                if ($authUser->profile_picture && $authUser->profile_picture !== 'non') {
-                    $avatar = filter_var($authUser->profile_picture, FILTER_VALIDATE_URL)
-                        ? $authUser->profile_picture
-                        : asset('new_wiselook/uploads/' . $authUser->profile_picture);
-                }
-
-                $rankPhotoPath = null;
-                $rankName = null;
-                if ($authUser->rank) {
-                    $rankName = __t($authUser->rank->rank_name);
-                    $rPhoto = $authUser->rank->photo;
-                    if (!empty($rPhoto) && file_exists(public_path('upload/rankings/' . $rPhoto))) {
-                        $rankPhotoPath = asset('upload/rankings/' . $rPhoto);
+<nav id="main-sidebar" class="flex flex-col h-screen fixed {{ $dir === 'rtl' ? 'right-0 border-l' : 'left-0 border-r' }} w-72 top-0 border-primary/5 bg-surface-container-low z-[70] py-stack-md transition-all duration-300">
+    <div class="px-6 mb-4 flex items-center justify-between gap-2">
+        <div class="flex items-center gap-4 min-w-0">
+            @auth
+                @php
+                    $authUser = Auth::user();
+                    $avatar = url('upload/no_image.jpg');
+                    if ($authUser->profile_picture && $authUser->profile_picture !== 'non') {
+                        $avatar = filter_var($authUser->profile_picture, FILTER_VALIDATE_URL)
+                            ? $authUser->profile_picture
+                            : asset('new_wiselook/uploads/' . $authUser->profile_picture);
                     }
-                }
-            @endphp
-            <img alt="User Avatar" class="w-12 h-12 rounded-full border-2 border-secondary-container object-cover" src="{{ $avatar }}"/>
-            <div>
-                <h2 class="font-headline-lg-mobile text-headline-lg-mobile text-primary font-bold leading-tight">{{ $authUser->first_name }} {{ $authUser->last_name }}</h2>
-                <div class="mt-0.5">
-                    @if($rankName)
-                        <span class="inline-flex items-center gap-1.5" style="display: inline-flex; align-items: center; gap: 4px; vertical-align: middle;">
-                            @if($rankPhotoPath)
-                                <img src="{{ $rankPhotoPath }}" alt="{{ $rankName }}" style="width: 16px; height: 16px; object-fit: contain;">
-                            @endif
-                            <span class="font-bold text-xs" style="color: #cda225; text-shadow: 0 1px 2px rgba(0,0,0,0.15);">{{ $rankName }}</span>
-                        </span>
-                    @else
-                        <span class="font-label-sm text-xs text-on-surface-variant">{{ __t('honorary_member') }}</span>
-                    @endif
+
+                    $rankPhotoPath = null;
+                    $rankName = null;
+                    if ($authUser->rank) {
+                        $rankName = __t($authUser->rank->rank_name);
+                        $rPhoto = $authUser->rank->photo;
+                        if (!empty($rPhoto) && file_exists(public_path('upload/rankings/' . $rPhoto))) {
+                            $rankPhotoPath = asset('upload/rankings/' . $rPhoto);
+                        }
+                    }
+                @endphp
+                <img alt="User Avatar" class="w-12 h-12 rounded-full border-2 border-secondary-container object-cover shrink-0" src="{{ $avatar }}"/>
+                <div class="min-w-0">
+                    <h2 class="font-headline-lg-mobile text-headline-lg-mobile text-primary font-bold leading-tight truncate">{{ $authUser->first_name }} {{ $authUser->last_name }}</h2>
+                    <div class="mt-0.5">
+                        @if($rankName)
+                            <span class="inline-flex items-center gap-1.5" style="display: inline-flex; align-items: center; gap: 4px; vertical-align: middle;">
+                                @if($rankPhotoPath)
+                                    <img src="{{ $rankPhotoPath }}" alt="{{ $rankName }}" style="width: 16px; height: 16px; object-fit: contain;">
+                                @endif
+                                <span class="font-bold text-xs" style="color: #cda225; text-shadow: 0 1px 2px rgba(0,0,0,0.15);">{{ $rankName }}</span>
+                            </span>
+                        @else
+                            <span class="font-label-sm text-xs text-on-surface-variant">{{ __t('honorary_member') }}</span>
+                        @endif
+                    </div>
                 </div>
-            </div>
-        @else
-            <img alt="Guest Avatar" class="w-12 h-12 rounded-full border-2 border-secondary-container object-cover" src="{{ url('upload/no_image.jpg') }}"/>
-            <div>
-                <h2 class="font-headline-lg-mobile text-headline-lg-mobile text-primary font-bold leading-tight">{{ __t('guest_user') }}</h2>
-                <a href="{{ route('user.login') }}" class="font-label-sm text-label-sm text-primary hover:underline">{{ __t('guest_login') }}</a>
-            </div>
-        @endauth
+            @else
+                <img alt="Guest Avatar" class="w-12 h-12 rounded-full border-2 border-secondary-container object-cover shrink-0" src="{{ url('upload/no_image.jpg') }}"/>
+                <div class="min-w-0">
+                    <h2 class="font-headline-lg-mobile text-headline-lg-mobile text-primary font-bold leading-tight truncate">{{ __t('guest_user') }}</h2>
+                    <a href="{{ route('user.login') }}" class="font-label-sm text-label-sm text-primary hover:underline">{{ __t('guest_login') }}</a>
+                </div>
+            @endauth
+        </div>
+        <button id="close-sidebar-btn" class="lg:hidden text-on-surface-variant/70 hover:text-primary hover:bg-surface-variant/50 p-1.5 rounded-full transition-colors shrink-0 flex items-center justify-center cursor-pointer border-none bg-transparent" title="{{ __t('close') ?? 'إغلاق' }}">
+            <span class="material-symbols-outlined text-[22px]">close</span>
+        </button>
     </div>
 
     <ul class="flex-1 space-y-2 overflow-y-auto px-4">
@@ -421,6 +426,16 @@ $(document).ready(function() {
                 }, 300);
             }
         }
+    });
+
+    // Close sidebar button (mobile)
+    $(document).on('click', '#close-sidebar-btn', function(e) {
+        e.preventDefault();
+        $('body').removeClass('sidebar-open');
+        $('#sidebar-backdrop').removeClass('opacity-100');
+        setTimeout(() => {
+            $('#sidebar-backdrop').removeClass('block').addClass('hidden');
+        }, 300);
     });
 
     // Close sidebar when clicking outside of it
