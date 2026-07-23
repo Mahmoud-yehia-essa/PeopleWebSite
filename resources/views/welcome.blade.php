@@ -1,5 +1,6 @@
 <!DOCTYPE html><html dir="rtl" lang="ar" style=""><head>
 <meta charset="utf-8">
+<meta name="facebook-domain-verification" content="0v84hov7fx1htv4mzy3ta9qstb54z4" />
 <meta content="width=device-width, initial-scale=1.0" name="viewport">
 <title>حكماء العالم - قريباً</title>
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
