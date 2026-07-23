@@ -37,11 +37,17 @@
     <!-- Toastr CSS -->
     <link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.css">
     <style>
-        body {
+        html, body {
             font-family: 'Tajawal', sans-serif;
             background-color: #f8faf5;
             margin: 0;
-            overflow: hidden;
+            padding: 0;
+            min-height: 100%;
+        }
+        @media (min-width: 1024px) {
+            body {
+                overflow: hidden;
+            }
         }
         .font-headline-md { font-family: 'Cairo', sans-serif; }
         .font-headline-lg { font-family: 'Cairo', sans-serif; }
@@ -84,7 +90,7 @@
 <body class="bg-background text-on-surface">
 <!-- Global Preloader -->
 @include('frontend.wiselook.body.preloader')
-<main class="flex flex-col lg:flex-row min-h-screen w-full overflow-hidden">
+<main class="flex flex-col lg:flex-row min-h-screen w-full overflow-x-hidden lg:overflow-hidden">
     <!-- Left Half: Branding & Illustration (Desktop Only) -->
     <section class="hidden lg:flex lg:w-1/2 relative bg-gradient-to-tr from-[#002112] via-[#1a5237] to-[#003a23] items-center justify-center p-12 overflow-hidden z-0">
         <div class="absolute inset-0 opacity-10 pointer-events-none overflow-hidden z-0">
@@ -100,7 +106,7 @@
     </section>
 
     <!-- Right Half: Reset Password Form -->
-    <section class="w-full lg:w-1/2 min-h-screen bg-surface flex flex-col items-center justify-center p-4 sm:p-8 overflow-y-auto custom-scroll relative">
+    <section class="w-full lg:w-1/2 min-h-screen bg-surface flex flex-col items-center justify-start lg:justify-center p-4 sm:p-8 py-8 sm:py-12 overflow-y-auto custom-scroll relative my-auto lg:my-0">
         <div class="w-full max-w-md bg-white border border-primary/5 rounded-3xl p-6 sm:p-10 shadow-[0_20px_50px_rgba(26,82,55,0.05)] transition-all duration-300">
             <!-- Header Icon & Title -->
             <div class="flex flex-col items-center text-center mb-6">

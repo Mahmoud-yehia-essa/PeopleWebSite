@@ -201,6 +201,14 @@ class TranslationsSeeder extends Seeder
                 'ar' => 'الهاتف',
                 'en' => 'Phone',
             ],
+            'login_with_phone' => [
+                'ar' => 'تسجيل الدخول برقم الهاتف',
+                'en' => 'Sign in with phone',
+            ],
+            'signup_with_phone' => [
+                'ar' => 'إنشاء حساب برقم الهاتف',
+                'en' => 'Sign up with phone',
+            ],
             'terms_privacy_agreement' => [
                 'ar' => 'باستخدامك للمنصة، أنت توافق على :terms و :privacy.',
                 'en' => 'By using the platform, you agree to the :terms and :privacy.',
