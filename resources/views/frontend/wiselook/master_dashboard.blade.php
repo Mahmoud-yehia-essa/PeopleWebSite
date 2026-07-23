@@ -153,12 +153,15 @@
         #share-post-modal, #delete-post-modal, #delete-action-modal {
             transition: visibility 0.3s;
         }
+        #share-post-modal.modal-show, #delete-post-modal.modal-show, #delete-action-modal.modal-show {
+            display: flex !important;
+        }
         #share-post-modal.modal-show .modal-backdrop, #delete-post-modal.modal-show .modal-backdrop, #delete-action-modal.modal-show .modal-backdrop {
-            opacity: 1;
+            opacity: 1 !important;
         }
         #share-post-modal.modal-show .modal-container, #delete-post-modal.modal-show .modal-container, #delete-action-modal.modal-show .modal-container {
-            transform: translateY(0) scale(1);
-            opacity: 1;
+            transform: translateY(0) scale(1) !important;
+            opacity: 1 !important;
         }
     </style>
     @stack('styles')
@@ -931,6 +934,9 @@
                 <button type="button" id="confirm-delete-post-btn" class="flex-grow bg-error text-white py-2.5 rounded-full text-xs font-bold hover:bg-error/90 transition-all shadow-sm">{{ __t('confirm_delete') }}</button>
                 <button type="button" id="cancel-delete-post-btn" class="flex-grow py-2.5 rounded-full border border-outline-variant text-xs font-bold text-on-surface-variant hover:bg-surface-container-high transition-all">{{ __t('cancel') }}</button>
             </div>
+        </div>
+    </div>
+
     <!-- Reusable Action Delete Confirmation Modal (Comments, Replies, etc.) -->
     <div id="delete-action-modal" class="fixed inset-0 z-[110] hidden items-center justify-center p-4">
         <!-- Backdrop with high-end glassmorphism -->
