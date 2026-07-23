@@ -201,7 +201,7 @@
                                             <span class="material-symbols-outlined {{ $isSaved ? 'fill-1' : '' }}">{{ $isSaved ? 'bookmark' : 'bookmark_border' }}</span>
                                             <span class="font-label-sm text-label-sm save-text">{{ $isSaved ? __t('saved_status') : __t('save_action') }}</span>
                                         </button>
-                                        <button class="share-post-btn flex items-center space-x-2 {{ $dir === 'rtl' ? 'space-x-reverse' : '' }} hover:text-primary transition-colors cursor-pointer" data-post-id="{{ $post->id }}" data-post-content="{{ urlencode($post->content) }}">
+                                        <button class="share-post-btn flex items-center space-x-2 {{ $dir === 'rtl' ? 'space-x-reverse' : '' }} hover:text-primary transition-colors cursor-pointer" data-post-id="{{ $post->id }}" data-post-content="{{ rawurlencode($post->content) }}">
                                             <span class="material-symbols-outlined">share</span>
                                             <span class="font-label-sm text-label-sm">{{ __t('share_post') }}</span>
                                         </button>
