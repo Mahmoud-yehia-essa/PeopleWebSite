@@ -1406,6 +1406,11 @@ $(document).ready(function() {
             el.focus();
             el.setSelectionRange(newCursorPos, newCursorPos);
         }
+
+        // Automatically close emoji picker on mobile screens
+        if ($(window).width() < 1024) {
+            emojiPicker.addClass('hidden');
+        }
     });
 
     // Close on click outside
