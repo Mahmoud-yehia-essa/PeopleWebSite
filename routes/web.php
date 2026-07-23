@@ -429,8 +429,8 @@ Route::middleware('auth')->group(function () {
 
     // My Network view and actions
     Route::get('/my-network', [FriendshipController::class, 'myNetwork'])->name('frontend.my_network');
-    Route::post('/friendships/accept/{id}', [FriendshipController::class, 'activeFriendship'])->name('frontend.friendships.accept');
-    Route::post('/friendships/delete/{id}', [FriendshipController::class, 'deleteFriendship'])->name('frontend.friendships.delete');
+    Route::match(['get', 'post'], '/friendships/accept/{id}', [FriendshipController::class, 'activeFriendship'])->name('frontend.friendships.accept');
+    Route::match(['get', 'post'], '/friendships/delete/{id}', [FriendshipController::class, 'deleteFriendship'])->name('frontend.friendships.delete');
 
     // Saved posts
     Route::get('/saved-posts', [SavedPostController::class, 'indexFrontend'])->name('frontend.saved_posts');

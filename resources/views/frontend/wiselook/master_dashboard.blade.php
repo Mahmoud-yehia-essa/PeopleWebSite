@@ -1003,6 +1003,60 @@
                 });
             }
         });
+
+        // Global Handle Sidebar / Mobile Friend Request Actions (Accept / Reject) via AJAX
+        $(document).on('click', '.accept-friendship-sidebar-btn, .reject-friendship-sidebar-btn', function(e) {
+            e.preventDefault();
+            const btn = $(this);
+            const url = btn.attr('href');
+            const row = btn.closest('.friend-request-sidebar-row');
+            const container = row.length ? row.parent() : null;
+
+            if (btn.hasClass('pointer-events-none')) return;
+            btn.addClass('pointer-events-none');
+
+            $.ajax({
+                url: url,
+                type: 'POST',
+                data: {
+                    _token: '{{ csrf_token() }}'
+                },
+                dataType: 'json',
+                success: function(response) {
+                    if (response.success) {
+                        if (typeof toastr !== "undefined") {
+                            toastr.success(response.message);
+                        }
+                        
+                        if (row.length) {
+                            row.addClass('scale-95 opacity-0 transition-all duration-300');
+                            setTimeout(() => {
+                                row.remove();
+                                if (container && container.find('.friend-request-sidebar-row').length === 0) {
+                                    $('#explore-more-sidebar-container').remove();
+                                    container.html('<p class="text-xs text-on-surface-variant text-center py-2">{{ __t("no_pending_friend_requests") }}</p>');
+                                }
+                            }, 300);
+                        }
+                    } else {
+                        if (typeof toastr !== "undefined") {
+                            toastr.error(response.message || '{{ __t("action_failed") }}');
+                        }
+                        btn.removeClass('pointer-events-none');
+                    }
+                },
+                error: function(xhr) {
+                    let msg = '{{ __t("action_error") }}';
+                    if (xhr.responseJSON && xhr.responseJSON.message) {
+                        msg = xhr.responseJSON.message;
+                    }
+                    if (typeof toastr !== "undefined") {
+                        toastr.error(msg);
+                    }
+                    btn.removeClass('pointer-events-none');
+                }
+            });
+        });
     </script>
 
     @stack('scripts')
