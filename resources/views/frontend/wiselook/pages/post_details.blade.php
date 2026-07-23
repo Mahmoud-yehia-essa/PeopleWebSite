@@ -235,7 +235,7 @@
                         }
                     @endphp
                     <div class="mt-6 pt-6 border-t border-primary/10">
-                        <form id="page-new-comment-form" class="flex items-center gap-3">
+                        <form id="page-new-comment-form" class="flex items-center gap-3" action="javascript:void(0);">
                             <img alt="User" class="w-10 h-10 rounded-full object-cover shrink-0" src="{{ $currentUserAvatar }}">
                             <div class="flex-1 relative">
                                 <input type="text" id="page-new-comment-input" class="w-full bg-surface border border-primary/10 rounded-full py-3 {{ $dir === 'rtl' ? 'pr-5 pl-14' : 'pl-5 pr-14' }} text-sm text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:ring-1 focus:ring-primary" placeholder="{{ __t('write_comment_placeholder') }}">
@@ -457,7 +457,7 @@
                             ${repliesHtml}
                         </div>
                         @auth
-                        <form class="new-reply-form flex items-center gap-2 mt-3">
+                        <form class="new-reply-form flex items-center gap-2 mt-3" action="javascript:void(0);">
                             <input type="text" class="new-reply-input flex-1 bg-surface border border-primary/10 rounded-full py-1.5 px-3.5 text-xs text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:ring-1 focus:ring-primary" placeholder="{{ __t('write_reply_placeholder') }}">
                             <button type="submit" class="bg-primary text-white hover:bg-primary-dark px-4 py-1.5 rounded-full text-[10px] font-bold transition-all shrink-0">{{ __t('send') }}</button>
                         </form>
@@ -539,9 +539,10 @@
         // Submit comment
         $('#page-new-comment-form').on('submit', function(e) {
             e.preventDefault();
+            e.stopPropagation();
             const input = $('#page-new-comment-input');
             const content = input.val().trim();
-            if (!content) return;
+            if (!content) return false;
 
             const btn = $(this).find('button[type="submit"]');
             btn.prop('disabled', true);
@@ -568,7 +569,13 @@
                         const html = buildCommentHtml(response.comment);
                         const $newEl = $(html).css('display', 'none');
                         $('#page-comments-list').append($newEl);
-                        $newEl.slideDown(400);
+                        $newEl.slideDown(400, function() {
+                            // Smoothly scroll down so the user sees their new comment directly in view!
+                            const targetTop = $newEl.offset().top - 120;
+                            $('html, body').animate({
+                                scrollTop: targetTop
+                            }, 400);
+                        });
                     } else {
                         alert(response.message || '{{ __t("comment_submit_failed") }}');
                     }
@@ -580,18 +587,20 @@
                     btn.prop('disabled', false);
                 }
             });
+            return false;
         });
 
         // Submit Reply
         $(document).on('submit', '#page-comments-list .new-reply-form', function(e) {
             e.preventDefault();
+            e.stopPropagation();
             const form = $(this);
             const input = form.find('.new-reply-input');
             const content = input.val().trim();
             const card = form.closest('.comment-card');
             const commentId = card.attr('data-comment-id');
             
-            if (!content || !commentId) return;
+            if (!content || !commentId) return false;
 
             const btn = form.find('button[type="submit"]');
             btn.prop('disabled', true);
@@ -625,7 +634,13 @@
                                 container.removeClass('hidden').show();
                             }
                             
-                            $newEl.slideDown(300);
+                            $newEl.slideDown(300, function() {
+                                // Smoothly scroll to the new reply
+                                const targetTop = $newEl.offset().top - 140;
+                                $('html, body').animate({
+                                    scrollTop: targetTop
+                                }, 300);
+                            });
                             card.find('.replies-count').text(`{{ __t('replies') }} (${comment.replies.length})`);
                         }
                     } else {
@@ -639,6 +654,7 @@
                     btn.prop('disabled', false);
                 }
             });
+            return false;
         });
 
         // Click handlers for guest prompts

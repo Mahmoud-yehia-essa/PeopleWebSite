@@ -598,10 +598,10 @@
                 window.closeGuestModal();
             });
 
-            // Automatically trigger Comments Modal if post_id query parameter is present
+            // Automatically trigger Comments Modal if post_id query parameter is present (except on single post details pages)
             const urlParams = new URLSearchParams(window.location.search);
             const postIdParam = urlParams.get('post_id');
-            if (postIdParam) {
+            if (postIdParam && !window.location.pathname.includes('/post/')) {
                 setTimeout(() => {
                     const btn = $(`.open-discussion-btn[data-post-id="${postIdParam}"]`);
                     if (btn.length > 0) {
