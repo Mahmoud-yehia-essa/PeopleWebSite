@@ -657,11 +657,126 @@
     </aside>
 </div>
 
+<!-- First-Time Welcome Modal for Visitors & Users -->
+<div id="welcome-modal" class="fixed inset-0 z-[120] hidden items-center justify-center p-4 sm:p-6 overflow-y-auto">
+    <!-- Backdrop with rich glassmorphism -->
+    <div class="modal-backdrop fixed inset-0 bg-slate-950/75 backdrop-blur-md opacity-0 transition-opacity duration-500" id="welcome-modal-backdrop"></div>
 
+    <!-- Modal Content Container -->
+    <div class="modal-container relative max-w-lg w-full bg-gradient-to-b from-white via-slate-50/95 to-emerald-50/50 backdrop-blur-2xl rounded-3xl border border-primary/20 shadow-[0_35px_60px_-15px_rgba(0,58,35,0.35)] p-6 sm:p-8 z-10 translate-y-12 scale-95 opacity-0 transition-all duration-500 text-center overflow-hidden my-auto" style="direction: rtl;">
+        
+        <!-- Glowing Ambient Orbs -->
+        <div class="absolute -top-24 -right-24 w-48 h-48 bg-primary/10 rounded-full blur-3xl pointer-events-none"></div>
+        <div class="absolute -bottom-24 -left-24 w-48 h-48 bg-amber-500/10 rounded-full blur-3xl pointer-events-none"></div>
 
+        <!-- Close Button -->
+        <button type="button" id="close-welcome-modal-btn" class="absolute top-4 left-4 w-9 h-9 rounded-full bg-slate-100/80 text-on-surface-variant hover:bg-error/10 hover:text-error transition-all flex items-center justify-center cursor-pointer border border-outline-variant/30 shadow-xs z-20" title="{{ __t('close') ?? 'إغلاق' }}">
+            <span class="material-symbols-outlined text-[20px]">close</span>
+        </button>
+
+        <!-- Main Header Icon Badge -->
+        <div class="relative mb-5 inline-block">
+            <div class="w-20 h-20 rounded-3xl bg-gradient-to-br from-primary via-emerald-800 to-emerald-950 text-amber-400 flex items-center justify-center mx-auto shadow-xl shadow-primary/30 ring-4 ring-amber-400/20 transform hover:rotate-3 transition-transform">
+                <span class="material-symbols-outlined text-[44px]">workspace_premium</span>
+            </div>
+            <div class="absolute -bottom-1 -right-1 bg-amber-500 text-slate-950 px-2 py-0.5 rounded-full text-[10px] font-extrabold shadow-md flex items-center gap-0.5">
+                <span class="material-symbols-outlined text-[13px]">auto_awesome</span>
+                <span>مرحباً بك</span>
+            </div>
+        </div>
+
+        <!-- Title & Subtitle -->
+        <h2 class="font-headline-lg text-xl sm:text-2xl font-bold text-primary mb-2 tracking-tight leading-snug">
+            أهلاً بك في منصة حكماء العالم
+        </h2>
+        <div class="inline-block bg-amber-500/10 border border-amber-500/25 rounded-full py-1 px-4 mb-4">
+            <span class="text-xs font-extrabold text-amber-700">الملتقى الرائد لأصحاب الرأي والمفكرين في كل المجالات</span>
+        </div>
+
+        <!-- Descriptive Formulation Text -->
+        <p class="text-xs sm:text-sm text-on-surface-variant leading-relaxed mb-6 px-1">
+            مساحتك الفكرية لمشاركة رأيك وتقديم حلولك المبتكرة. قد تكون أنت من يحل قضية معقدة، وتتدرج في مراتب الحكمة من خلال تقييمات نخبة الحكماء والمتخصصين في كافة المجالات... ومن يدري، قد تصبح يوماً أحدهم!
+        </p>
+
+        <!-- 3 Interactive Action Feature Cards -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6 text-right">
+            <!-- Feature 1 -->
+            <div class="bg-white/80 backdrop-blur-xs p-3.5 rounded-2xl border border-primary/10 shadow-xs hover:border-primary/30 transition-all group">
+                <div class="w-8 h-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+                    <span class="material-symbols-outlined text-[18px]">forum</span>
+                </div>
+                <h3 class="text-xs font-bold text-primary mb-1">اعرض قضيتك</h3>
+                <p class="text-[11px] text-on-surface-variant leading-snug">شارك الآخرين في حل القضايا ونشر الرؤى القيمة.</p>
+            </div>
+
+            <!-- Feature 2 -->
+            <div class="bg-white/80 backdrop-blur-xs p-3.5 rounded-2xl border border-primary/10 shadow-xs hover:border-primary/30 transition-all group">
+                <div class="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+                    <span class="material-symbols-outlined text-[18px]">military_tech</span>
+                </div>
+                <h3 class="text-xs font-bold text-primary mb-1">ارتقِ برتبتك</h3>
+                <p class="text-[11px] text-on-surface-variant leading-snug">احصل على التقييمات واكسب النقاط للتدرج في رتب الحكمة.</p>
+            </div>
+
+            <!-- Feature 3 -->
+            <div class="bg-white/80 backdrop-blur-xs p-3.5 rounded-2xl border border-primary/10 shadow-xs hover:border-primary/30 transition-all group">
+                <div class="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-700 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+                    <span class="material-symbols-outlined text-[18px]">group_add</span>
+                </div>
+                <h3 class="text-xs font-bold text-primary mb-1">أنشئ مجتمعك</h3>
+                <p class="text-[11px] text-on-surface-variant leading-snug">أنشئ مجموعتك الخاصة وادعُ أصدقاءك للانضمام.</p>
+            </div>
+        </div>
+
+        <!-- Action CTA Button -->
+        <div class="w-full">
+            <button type="button" id="start-welcome-journey-btn" class="w-full bg-gradient-to-r from-primary via-emerald-800 to-emerald-900 text-white py-3.5 px-6 rounded-full text-xs sm:text-sm font-bold hover:brightness-110 active:scale-[0.99] transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2 group cursor-pointer">
+                <span>ابدأ رحلتك في منصة الحكمة</span>
+                <span class="material-symbols-outlined text-[18px] group-hover:-translate-x-1 transition-transform">arrow_back</span>
+            </button>
+        </div>
+
+    </div>
+</div>
 
 @push('scripts')
 <script>
+$(document).ready(function() {
+    // First-Time Welcome Modal Logic
+    const SEEN_WELCOME_KEY = 'wiselook_welcome_modal_seen_v1';
+
+    if (!localStorage.getItem(SEEN_WELCOME_KEY)) {
+        setTimeout(function() {
+            openWelcomeModal();
+        }, 1200);
+    }
+
+    function openWelcomeModal() {
+        const modal = $('#welcome-modal');
+        if (!modal.length) return;
+
+        modal.removeClass('hidden').addClass('flex');
+        $('body').addClass('modal-active');
+        setTimeout(() => {
+            modal.addClass('modal-show');
+        }, 20);
+    }
+
+    function closeWelcomeModal() {
+        const modal = $('#welcome-modal');
+        modal.removeClass('modal-show');
+        setTimeout(() => {
+            modal.removeClass('flex').addClass('hidden');
+            $('body').removeClass('modal-active');
+        }, 400);
+
+        // Mark as seen so it NEVER pops up again
+        localStorage.setItem(SEEN_WELCOME_KEY, 'true');
+    }
+
+    $(document).on('click', '#close-welcome-modal-btn, #start-welcome-journey-btn, #welcome-modal-backdrop', function() {
+        closeWelcomeModal();
+    });
 $(document).ready(function() {
     // Handle Sidebar Friend Request Actions (Accept / Reject) via AJAX
     $(document).on('click', '.accept-friendship-sidebar-btn, .reject-friendship-sidebar-btn', function(e) {
