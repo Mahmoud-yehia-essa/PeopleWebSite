@@ -211,7 +211,7 @@
             </div>
             <div class="flex gap-8 {{ $flexAlignSelf }} items-center justify-center">
                 <div class="text-center">
-                    <div class="font-headline-md text-2xl font-bold text-primary">{{ $posts->count() }}</div>
+                    <div class="font-headline-md text-2xl font-bold text-primary">{{ number_format($postsCount ?? $user->posts()->where('is_active', 1)->count()) }}</div>
                     <div class="font-label-sm text-xs text-on-surface-variant">{{ __t('topics_count_label') }}</div>
                 </div>
                 <div class="w-px h-12 bg-outline-variant"></div>

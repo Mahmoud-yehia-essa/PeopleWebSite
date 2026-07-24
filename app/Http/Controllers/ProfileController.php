@@ -68,6 +68,7 @@ class ProfileController extends Controller
         } else {
             $user = Auth::user();
         }
+        $postsCount = $user->posts()->where('is_active', 1)->count();
         $posts = $user->posts()->with(['poll.options'])->where('is_active', 1)->latest()->take(10)->get();
         
         $wiseRatedPosts = $user->posts()
@@ -89,7 +90,7 @@ class ProfileController extends Controller
               ->where('user_id', $user->id);
         })->get();
 
-        return view('frontend.wiselook.pages.profile', compact('user', 'posts', 'wiseRatedPosts', 'wisePointLogs', 'joinedGroups'));
+        return view('frontend.wiselook.pages.profile', compact('user', 'posts', 'postsCount', 'wiseRatedPosts', 'wisePointLogs', 'joinedGroups'));
     }
 
     /**
