@@ -53,15 +53,17 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/messages/call/end', [CallController::class, 'endCall']);
 });
 
-Route::get('/', function () {
+Route::get('/', [PostController::class, 'indexFrontend'])->name('frontend.home');
+
+Route::get('/soon', function () {
     return view('frontend.soon');
 })->name('frontend.soon');
+
+Route::get('/dev', [PostController::class, 'indexFrontend']);
 
 Route::get('/terms', function () {
     return view('frontend.wiselook.pages.terms');
 })->name('terms');
-
-Route::get('/dev', [PostController::class, 'indexFrontend'])->name('frontend.home');
 Route::get('/trending-issues', [PostController::class, 'trendingIssues'])->name('frontend.trending');
 
 use App\Http\Controllers\Auth\LoginController;
