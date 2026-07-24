@@ -284,7 +284,7 @@
                 <span class="material-symbols-outlined text-[36px]" style="font-variation-settings: 'FILL' 1;">account_circle</span>
             </div>
             
-            <h3 class="font-headline-lg text-lg font-extrabold text-primary mb-2 leading-tight">انضم لعشيرة حكماء العالم</h3>
+            <h3 class="font-headline-lg text-lg font-extrabold text-primary mb-2 leading-tight">انضم لحكماء العالم الان</h3>
             <p class="font-body-md text-xs text-on-surface-variant/80 mb-6 leading-relaxed">يرجى تسجيل الدخول أو إنشاء حساب جديد لتتمكن من كتابة تعليقات، إرسال ردود، وتأييد حكم المبدعين والمفكرين في مجتمعنا.</p>
             
             <!-- Actions -->
