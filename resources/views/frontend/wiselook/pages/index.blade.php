@@ -1761,13 +1761,42 @@ $(document).ready(function() {
         const isImage = (type && type.startsWith('image/')) || (name && /\.(jpg|jpeg|png|gif|webp|heic|heif|bmp|svg)$/i.test(name));
         const isVideo = (type && type.startsWith('video/')) || (name && /\.(mp4|mov|avi|wmv|webm|m4v|3gp|mkv)$/i.test(name));
         
+        const fallbackPreview = $('#story-file-fallback-preview');
+        $('#story-filename-text').text(name || 'تم اختيار الملف بنجاح');
+
+        function showFallback() {
+            imgPreview.addClass('hidden').attr('src', '');
+            vidPreview.addClass('hidden').attr('src', '');
+            fallbackPreview.removeClass('hidden').addClass('flex');
+            previewWrapper.removeClass('hidden');
+            dropzone.addClass('hidden');
+        }
+
         if (isImage) {
-            if (size > 10 * 1024 * 1024) {
-                if (typeof toastr !== 'undefined') toastr.error('حجم الصورة كبير جداً. الحد الأقصى 10 ميجابايت.');
+            if (size > 15 * 1024 * 1024) {
+                if (typeof toastr !== 'undefined') toastr.error('حجم الصورة كبير جداً. الحد الأقصى 15 ميجابايت.');
                 resetStoryUploadPreview();
                 return;
             }
             
+            fallbackPreview.addClass('hidden').removeClass('flex');
+
+            // Try Blob URL first (0 memory overhead on mobile devices)
+            try {
+                const URLObj = window.URL || window.webkitURL;
+                if (URLObj && typeof URLObj.createObjectURL === 'function') {
+                    const blobUrl = URLObj.createObjectURL(file);
+                    imgPreview.attr('src', blobUrl).removeClass('hidden');
+                    vidPreview.addClass('hidden').attr('src', '');
+                    previewWrapper.removeClass('hidden');
+                    dropzone.addClass('hidden');
+                    return;
+                }
+            } catch (err) {
+                console.warn('Blob URL preview error:', err);
+            }
+
+            // Fallback to FileReader if Blob URL is unavailable
             const reader = new FileReader();
             reader.onload = function(e) {
                 imgPreview.attr('src', e.target.result).removeClass('hidden');
@@ -1776,8 +1805,7 @@ $(document).ready(function() {
                 dropzone.addClass('hidden');
             };
             reader.onerror = function() {
-                if (typeof toastr !== 'undefined') toastr.error('تعذر عرض معاينة الصورة المختارة.');
-                resetStoryUploadPreview();
+                showFallback();
             };
             reader.readAsDataURL(file);
 
@@ -1787,23 +1815,38 @@ $(document).ready(function() {
                 resetStoryUploadPreview();
                 return;
             }
-            const videoUrl = URL.createObjectURL(file);
-            vidPreview.attr('src', videoUrl).removeClass('hidden');
-            imgPreview.addClass('hidden').attr('src', '');
-            previewWrapper.removeClass('hidden');
-            dropzone.addClass('hidden');
+            fallbackPreview.addClass('hidden').removeClass('flex');
+            try {
+                const URLObj = window.URL || window.webkitURL;
+                const videoUrl = URLObj.createObjectURL(file);
+                vidPreview.attr('src', videoUrl).removeClass('hidden');
+                imgPreview.addClass('hidden').attr('src', '');
+                previewWrapper.removeClass('hidden');
+                dropzone.addClass('hidden');
+            } catch (err) {
+                showFallback();
+            }
         } else {
-            if (typeof toastr !== 'undefined') toastr.error('نوع الملف غير مدعوم. يرجى اختيار صورة أو فيديو.');
-            resetStoryUploadPreview();
+            // Default file selection if mime type is unhandled by browser
+            showFallback();
         }
     }
     
+    // Handle image load error dynamically
+    imgPreview.on('error', function() {
+        if (!imgPreview.hasClass('hidden')) {
+            imgPreview.addClass('hidden').attr('src', '');
+            $('#story-file-fallback-preview').removeClass('hidden').addClass('flex');
+        }
+    });
+
     $('#remove-story-media-btn').on('click', resetStoryUploadPreview);
     
     function resetStoryUploadPreview() {
         fileInput.val('');
         imgPreview.addClass('hidden').attr('src', '');
         vidPreview.addClass('hidden').attr('src', '');
+        $('#story-file-fallback-preview').addClass('hidden').removeClass('flex');
         previewWrapper.addClass('hidden');
         dropzone.removeClass('hidden');
         $('#story-upload-progress-wrapper').addClass('hidden');
@@ -2491,6 +2534,14 @@ $(document).ready(function() {
                 <div id="story-preview-wrapper" class="hidden relative rounded-xl overflow-hidden border border-outline-variant bg-slate-900 min-h-[220px] w-full flex items-center justify-center p-2">
                     <img id="story-image-preview" src="" class="hidden max-h-64 w-auto max-w-full object-contain mx-auto rounded-lg">
                     <video id="story-video-preview" controls class="hidden max-h-64 w-full object-contain mx-auto rounded-lg"></video>
+                    
+                    <!-- Fallback Selected File Badge -->
+                    <div id="story-file-fallback-preview" class="hidden flex-col items-center justify-center p-6 text-center text-white space-y-2">
+                        <span class="material-symbols-outlined text-[48px] text-emerald-400">task_alt</span>
+                        <p class="text-xs font-bold truncate max-w-[220px] text-emerald-300" id="story-filename-text">تم اختيار الملف بنجاح</p>
+                        <p class="text-[11px] text-slate-300">الملف جاهز للنشر</p>
+                    </div>
+
                     <button type="button" id="remove-story-media-btn" class="absolute top-3 right-3 p-2 bg-black/70 hover:bg-black/90 text-white rounded-full transition-all cursor-pointer flex items-center justify-center z-20 shadow-md">
                         <span class="material-symbols-outlined text-[18px]">close</span>
                     </button>
