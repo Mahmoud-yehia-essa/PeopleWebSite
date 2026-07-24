@@ -130,6 +130,13 @@
                     <span class="material-symbols-outlined {{ $userLiked ? 'fill-1 text-primary' : '' }}">lightbulb</span>
                     <span>{{ __t('support_btn') }}</span>
                 </button>
+            @elseif(!auth()->check())
+                <button class="subject-support-btn flex-grow flex items-center justify-center gap-2 py-2 hover:bg-surface rounded-lg transition-all text-on-surface-variant text-xs font-bold cursor-pointer bg-transparent border-0"
+                        data-subject-id="{{ $subject->id }}"
+                        data-active="false">
+                    <span class="material-symbols-outlined">lightbulb</span>
+                    <span>{{ __t('support_btn') }}</span>
+                </button>
             @else
                 <button class="flex-grow flex items-center justify-center gap-2 py-2 hover:bg-surface rounded-lg transition-all text-on-surface-variant/40 text-xs font-bold cursor-not-allowed bg-transparent border-0" disabled>
                     <span class="material-symbols-outlined">lightbulb</span>

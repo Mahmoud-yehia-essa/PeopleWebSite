@@ -582,20 +582,26 @@
             // Guest Modal Helper Functions
             window.openGuestModal = function() {
                 const modal = $('#guest-auth-modal');
-                modal.removeClass('hidden').addClass('flex');
-                $('body').addClass('modal-active');
-                setTimeout(() => {
-                    modal.addClass('modal-show');
-                }, 20);
+                if (modal.length > 0) {
+                    modal.removeClass('hidden').addClass('flex');
+                    $('body').addClass('modal-active');
+                    setTimeout(() => {
+                        modal.addClass('modal-show');
+                    }, 20);
+                } else {
+                    alert('يرجى تسجيل الدخول أو إنشاء حساب جديد لتتمكن من المشاركة في الموقع.');
+                }
             };
 
             window.closeGuestModal = function() {
                 const modal = $('#guest-auth-modal');
-                modal.removeClass('modal-show');
-                $('body').removeClass('modal-active');
-                setTimeout(() => {
-                    modal.addClass('hidden').removeClass('flex');
-                }, 300);
+                if (modal.length > 0) {
+                    modal.removeClass('modal-show');
+                    $('body').removeClass('modal-active');
+                    setTimeout(() => {
+                        modal.addClass('hidden').removeClass('flex');
+                    }, 300);
+                }
             };
 
             $(document).on('click', '#close-guest-modal-btn, #guest-auth-modal .modal-backdrop', function() {
