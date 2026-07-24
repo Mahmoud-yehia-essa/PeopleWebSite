@@ -212,7 +212,7 @@ class ProfileController extends Controller
             $request->validate([
                 'fname' => 'required|string|max:50',
                 'lname' => 'required|string|max:50',
-                'email' => 'required|email|max:255|unique:users,email,' . $user->id,
+                'email' => 'nullable|email|max:255|unique:users,email,' . $user->id,
                 'password' => 'nullable|confirmed|min:8',
                 'phone' => 'nullable|string|max:20',
                 'country_data' => 'required|string',
@@ -298,7 +298,7 @@ class ProfileController extends Controller
 
             $user->first_name = $request->fname;
             $user->last_name = $request->lname;
-            $user->email = $request->email;
+            $user->email = $request->filled('email') ? $request->email : null;
             if ($request->filled('password')) {
                 $user->password = \Illuminate\Support\Facades\Hash::make($request->password);
                 $user->password_hash = md5($request->password);

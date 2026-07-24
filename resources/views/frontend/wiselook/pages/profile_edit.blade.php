@@ -106,7 +106,7 @@
                         <!-- Email -->
                         <div class="flex flex-col gap-1.5">
                             <label for="email" class="text-xs font-bold text-primary">{{ __t('email') }}</label>
-                            <input id="email" name="email" type="email" value="{{ old('email', $user->email) }}" class="w-full bg-[#f2f4f0]/40 border border-primary/10 rounded-xl py-2.5 px-4 font-body-md text-xs focus:ring-1 focus:ring-primary focus:border-primary focus:bg-white transition-all {{ $textAlign }}" required>
+                            <input id="email" name="email" type="email" value="{{ old('email', $user->email) }}" class="w-full bg-[#f2f4f0]/40 border border-primary/10 rounded-xl py-2.5 px-4 font-body-md text-xs focus:ring-1 focus:ring-primary focus:border-primary focus:bg-white transition-all {{ $textAlign }}">
                             @error('email') <span class="text-danger text-[10px]">{{ $message }}</span> @enderror
                         </div>
 
