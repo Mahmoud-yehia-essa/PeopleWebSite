@@ -218,9 +218,31 @@ class ProfileController extends Controller
                 'country_data' => 'required|string',
                 'address' => 'nullable|string|max:255',
                 'bio' => 'nullable|string|max:1000',
-                'photo' => 'nullable|file|mimes:jpeg,png,jpg,gif,webp,heic|max:10240',
-                'cover_photo' => 'nullable|file|mimes:jpeg,png,jpg,gif,webp,heic|max:10240',
+                'photo' => 'nullable|file|max:10240',
+                'cover_photo' => 'nullable|file|max:10240',
             ]);
+
+            $allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'bmp', 'svg'];
+
+            // Check profile photo extension (string-based without requiring php_fileinfo)
+            if ($request->hasFile('photo')) {
+                $file = $request->file('photo');
+                $originalName = $file->getClientOriginalName();
+                $ext = strtolower($file->getClientOriginalExtension() ?: pathinfo($originalName, PATHINFO_EXTENSION));
+                if ($ext && !in_array($ext, $allowedExtensions)) {
+                    return redirect()->back()->withInput()->withErrors(['photo' => 'نوع الصورة الشخصية غير مدعوم. الصيغ المسموحة: JPG, PNG, GIF, WEBP.']);
+                }
+            }
+
+            // Check cover photo extension (string-based without requiring php_fileinfo)
+            if ($request->hasFile('cover_photo')) {
+                $file = $request->file('cover_photo');
+                $originalName = $file->getClientOriginalName();
+                $ext = strtolower($file->getClientOriginalExtension() ?: pathinfo($originalName, PATHINFO_EXTENSION));
+                if ($ext && !in_array($ext, $allowedExtensions)) {
+                    return redirect()->back()->withInput()->withErrors(['cover_photo' => 'نوع صورة الغلاف غير مدعوم. الصيغ المسموحة: JPG, PNG, GIF, WEBP.']);
+                }
+            }
 
             $countryData = json_decode($request->country_data, true);
             $dial = $countryData['dial'] ?? '';
@@ -242,7 +264,8 @@ class ProfileController extends Controller
                         if ($user->profile_picture && \Illuminate\Support\Facades\File::exists($uploadDir . '/' . $user->profile_picture)) {
                             \Illuminate\Support\Facades\File::delete($uploadDir . '/' . $user->profile_picture);
                         }
-                        $ext = strtolower($file->getClientOriginalExtension() ?: $file->extension() ?: 'jpg');
+                        $originalName = $file->getClientOriginalName();
+                        $ext = strtolower($file->getClientOriginalExtension() ?: pathinfo($originalName, PATHINFO_EXTENSION) ?: 'jpg');
                         $photoName = date('YmdHis') . '_' . uniqid() . '_profile.' . $ext;
                         $file->move($uploadDir, $photoName);
                         $user->profile_picture = $photoName;
@@ -261,7 +284,8 @@ class ProfileController extends Controller
                         if ($user->cover_picture && \Illuminate\Support\Facades\File::exists($uploadDir . '/' . $user->cover_picture)) {
                             \Illuminate\Support\Facades\File::delete($uploadDir . '/' . $user->cover_picture);
                         }
-                        $ext = strtolower($file->getClientOriginalExtension() ?: $file->extension() ?: 'jpg');
+                        $originalName = $file->getClientOriginalName();
+                        $ext = strtolower($file->getClientOriginalExtension() ?: pathinfo($originalName, PATHINFO_EXTENSION) ?: 'jpg');
                         $coverName = date('YmdHis') . '_' . uniqid() . '_cover.' . $ext;
                         $file->move($uploadDir, $coverName);
                         $user->cover_picture = $coverName;
