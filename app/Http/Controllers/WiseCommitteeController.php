@@ -21,10 +21,9 @@ class WiseCommitteeController extends Controller
         // جلب الحكماء الحاليين
         $committeeMembers = WiseCommittee::with('user')->latest()->get();
 
-        // جلب الأعضاء العاديين الذين لم يتم تعيينهم حكماء بعد
+        // جلب جميع المستخدمين المتاحين الذين لم يتم تعيينهم حكماء بعد
         $wiseUserIds = WiseCommittee::pluck('user_id')->toArray();
         $availableUsers = User::whereNotIn('id', $wiseUserIds)
-                              ->where('role', 'user')
                               ->latest()
                               ->get();
 
