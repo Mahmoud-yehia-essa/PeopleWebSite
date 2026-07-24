@@ -2700,8 +2700,14 @@
                     $('#video-select-btn').prop('disabled', false);
                     
                     let errorMsg = _tp.failedSendMessage;
-                    if (xhr.responseJSON && xhr.responseJSON.errors) {
-                        errorMsg = Object.values(xhr.responseJSON.errors).flat().join('\n');
+                    if (xhr.responseJSON) {
+                        if (xhr.responseJSON.message) {
+                            errorMsg += ' (' + xhr.responseJSON.message + ')';
+                        } else if (xhr.responseJSON.errors) {
+                            errorMsg += '\n' + Object.values(xhr.responseJSON.errors).flat().join('\n');
+                        }
+                    } else if (xhr.status) {
+                        errorMsg += ' (كود الخطأ: ' + xhr.status + ' ' + (xhr.statusText || '') + ')';
                     }
                     toastr.error(errorMsg);
                 }

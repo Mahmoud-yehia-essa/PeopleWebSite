@@ -297,7 +297,11 @@ class GroupChatController extends Controller
         $message->load(['sender', 'parent.sender']);
 
         // Broadcast to other group members in real-time
-        broadcast(new GroupMessageSent($message, $members))->toOthers();
+        try {
+            broadcast(new GroupMessageSent($message, $members))->toOthers();
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Reverb Broadcast error in sendGroupMessage: ' . $e->getMessage());
+        }
 
         // Prepare return assets URLs
         $message->image_url = $message->image ? asset('new_wiselook/uploads/' . basename($message->image)) : null;
