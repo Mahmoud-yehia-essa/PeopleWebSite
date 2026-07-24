@@ -8,10 +8,10 @@
     $borderSide = $dir === 'rtl' ? 'border-l' : 'border-r';
 @endphp
 <!-- Chat Shell Wrapper with Padding Top to avoid Header overlap -->
-<div class="pt-20 px-margin-mobile md:px-margin-desktop max-w-container-max-width mx-auto pb-12 {{ $textAlign }}" style="direction: {{ $dir }};">
+<div class="pt-20 px-1 sm:px-margin-mobile md:px-margin-desktop max-w-container-max-width mx-auto pb-6 sm:pb-12 {{ $textAlign }} w-full overflow-x-hidden" style="direction: {{ $dir }};">
     
     <!-- Chat Container Card: Flex layout in RTL renders right-to-left -->
-    <div class="flex flex-row h-[calc(100vh-140px)] min-h-[450px] w-full overflow-hidden bg-white rounded-2xl border border-primary/10 shadow-sm" style="direction: {{ $dir }};">
+    <div class="flex flex-row h-[calc(100vh-140px)] min-h-[450px] w-full min-w-0 overflow-hidden bg-white rounded-2xl border border-primary/10 shadow-sm" style="direction: {{ $dir }};">
         
         <!-- Backdrop Overlay for Mobile Chat Sidebar -->
         <div id="chat-sidebar-backdrop" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-40 hidden opacity-0 transition-opacity duration-300 lg:hidden"></div>
@@ -118,37 +118,37 @@
         </aside>
 
         <!-- Main Message Thread area (Left side in RTL) -->
-        <main class="flex-1 flex flex-col bg-[#f8faf5] h-full relative {{ $activeUser ? '' : 'hidden' }}" id="chat-main-panel">
+        <main class="flex-1 min-w-0 flex flex-col bg-[#f8faf5] h-full relative overflow-x-hidden {{ $activeUser ? '' : 'hidden' }}" id="chat-main-panel">
                 <!-- Message Panel Header -->
-                <div class="h-16 border-b border-primary/5 bg-white px-3 md:px-6 flex items-center justify-between shrink-0 shadow-sm z-10" style="direction: {{ $dir }};">
-                    <div class="flex items-center gap-2.5 {{ $textAlign }}">
+                <div class="h-16 border-b border-primary/5 bg-white px-2 sm:px-4 md:px-6 flex items-center justify-between shrink-0 shadow-sm z-10 min-w-0 w-full" style="direction: {{ $dir }};">
+                    <div class="flex items-center gap-1.5 sm:gap-2.5 min-w-0 {{ $textAlign }}">
                         <!-- Mobile Sidebar Toggle Button -->
-                        <button type="button" id="toggle-chat-sidebar-btn" class="lg:hidden text-primary hover:bg-primary/10 py-1.5 px-2.5 rounded-xl transition-all flex items-center gap-1.5 font-bold text-xs cursor-pointer border-none bg-primary/5 shrink-0" title="المحادثات">
-                            <span class="material-symbols-outlined text-[20px]">forum</span>
-                            <span class="text-[11px] font-bold">المحادثات</span>
+                        <button type="button" id="toggle-chat-sidebar-btn" class="lg:hidden text-primary hover:bg-primary/10 py-1.5 px-2 rounded-xl transition-all flex items-center gap-1 font-bold text-xs cursor-pointer border-none bg-primary/5 shrink-0" title="المحادثات">
+                            <span class="material-symbols-outlined text-[18px]">forum</span>
+                            <span class="text-[10px] sm:text-[11px] font-bold hidden sm:inline">المحادثات</span>
                         </button>
 
-                        <div class="w-10 h-10 rounded-full overflow-hidden shrink-0 border border-outline-variant">
+                        <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-full overflow-hidden shrink-0 border border-outline-variant">
                             <img id="active-user-avatar" alt="{{ $activeUser ? $activeUser->first_name : '' }}" class="w-full h-full object-cover" src="{{ $activeUser ? $activeUser->avatar_url : asset('upload/no_image.jpg') }}">
                         </div>
-                        <div>
-                            <h2 id="active-user-name" class="font-title-lg text-xs font-bold text-primary leading-tight">{{ $activeUser ? ($activeUser->first_name . ' ' . $activeUser->last_name) : '' }}</h2>
-                            <p class="font-label-sm text-[9px] text-secondary flex items-center gap-1 mt-0.5 {{ $textAlign === 'text-right' ? 'justify-start' : 'justify-end' }}" id="active-user-status-container">
-                                <span class="w-1.5 h-1.5 bg-secondary rounded-full inline-block" id="active-user-status-dot"></span> 
-                                <span id="active-user-status-text">{{ __t('online_now') }}</span>
+                        <div class="min-w-0 flex-1">
+                            <h2 id="active-user-name" class="font-title-lg text-xs font-bold text-primary leading-tight truncate">{{ $activeUser ? ($activeUser->first_name . ' ' . $activeUser->last_name) : '' }}</h2>
+                            <p class="font-label-sm text-[9px] text-secondary flex items-center gap-1 mt-0.5 truncate {{ $textAlign === 'text-right' ? 'justify-start' : 'justify-end' }}" id="active-user-status-container">
+                                <span class="w-1.5 h-1.5 bg-secondary rounded-full inline-block shrink-0" id="active-user-status-dot"></span> 
+                                <span id="active-user-status-text" class="truncate">{{ __t('online_now') }}</span>
                             </p>
                         </div>
                     </div>
                     
-                    <div class="flex items-center gap-3">
-                        <button id="toggle-message-search-btn" class="w-9 h-9 rounded-full border border-primary/10 flex items-center justify-center text-primary hover:bg-primary/5 transition-all cursor-pointer bg-transparent" title="{{ __t('search_messages_title') }}">
-                            <span class="material-symbols-outlined text-[18px]">search</span>
+                    <div class="flex items-center gap-1 sm:gap-3 shrink-0">
+                        <button id="toggle-message-search-btn" class="w-8 h-8 sm:w-9 sm:h-9 rounded-full border border-primary/10 flex items-center justify-center text-primary hover:bg-primary/5 transition-all cursor-pointer bg-transparent shrink-0" title="{{ __t('search_messages_title') }}">
+                            <span class="material-symbols-outlined text-[16px] sm:text-[18px]">search</span>
                         </button>
-                        <button id="call-btn" class="w-9 h-9 rounded-full border border-primary/10 flex items-center justify-center text-primary hover:bg-primary/5 transition-all cursor-pointer bg-transparent" title="{{ __t('direct_call_title') }}">
-                            <span class="material-symbols-outlined text-[18px]">call</span>
+                        <button id="call-btn" class="w-8 h-8 sm:w-9 sm:h-9 rounded-full border border-primary/10 flex items-center justify-center text-primary hover:bg-primary/5 transition-all cursor-pointer bg-transparent shrink-0" title="{{ __t('direct_call_title') }}">
+                            <span class="material-symbols-outlined text-[16px] sm:text-[18px]">call</span>
                         </button>
-                        <button id="group-info-btn" class="w-9 h-9 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-low transition-colors cursor-pointer bg-transparent border-none hidden" title="{{ __t('group_info_title') }}">
-                            <span class="material-symbols-outlined text-[18px]">info</span>
+                        <button id="group-info-btn" class="w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-low transition-colors cursor-pointer bg-transparent border-none hidden shrink-0" title="{{ __t('group_info_title') }}">
+                            <span class="material-symbols-outlined text-[16px] sm:text-[18px]">info</span>
                         </button>
                     </div>
                 </div>
@@ -171,7 +171,7 @@
                 </div>
 
                 <!-- Scrollable Message List -->
-                <div class="flex-1 overflow-y-auto p-6 flex flex-col gap-6 scrollbar-none" id="messages-container">
+                <div class="flex-1 overflow-y-auto p-3 sm:p-6 flex flex-col gap-4 sm:gap-6 scrollbar-none" id="messages-container">
                     <!-- Loading Spinner (Hidden by default) -->
                     <div id="messages-loading" class="hidden flex justify-center items-center py-4">
                         <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
@@ -183,7 +183,7 @@
                     </div>
 
                     <!-- Messages list will be populated dynamically -->
-                    <div id="messages-list-wrapper" class="flex flex-col gap-6">
+                    <div id="messages-list-wrapper" class="flex flex-col gap-4 sm:gap-6">
                         <!-- Messages go here -->
                     </div>
                 </div>
@@ -200,8 +200,8 @@
                 </div>
 
                 <!-- Chat Input Form (Bottom) -->
-                <div class="bg-white border-t border-primary/5 p-4 shrink-0 shadow-sm z-10" style="direction: {{ $dir }};">
-                    <div class="max-w-3xl mx-auto flex flex-col bg-[#f2f4f0]/60 rounded-2xl p-2 border border-primary/10 focus-within:border-primary/30 transition-all">
+                <div class="bg-white border-t border-primary/5 p-2 sm:p-4 shrink-0 shadow-sm z-10 min-w-0" style="direction: {{ $dir }};">
+                    <div class="max-w-3xl mx-auto flex flex-col bg-[#f2f4f0]/60 rounded-2xl p-1.5 sm:p-2 border border-primary/10 focus-within:border-primary/30 transition-all min-w-0">
                         <!-- Reply Preview Bar (Hidden by default) -->
                         <div id="reply-preview-container" class="hidden items-center justify-between gap-3 p-3 bg-white/80 rounded-t-xl border-b border-primary/5 mb-2">
                             <div class="flex items-center gap-2 {{ $dir === 'rtl' ? 'border-r-4 pr-3' : 'border-l-4 pl-3' }} border-primary min-w-0">
@@ -233,48 +233,48 @@
                         </div>
                         
                         <!-- Audio Recording Bar (Hidden by default) -->
-                        <div id="audio-recording-container" class="hidden items-center justify-between gap-4 w-full py-1">
-                            <div class="flex items-center gap-2 text-red-500 font-bold text-xs shrink-0">
-                                <span class="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse"></span>
+                        <div id="audio-recording-container" class="hidden items-center justify-between gap-2 sm:gap-4 w-full py-1 min-w-0">
+                            <div class="flex items-center gap-1.5 sm:gap-2 text-red-500 font-bold text-xs shrink-0">
+                                <span class="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-red-500 animate-pulse"></span>
                                 <span id="recording-timer">00:00</span>
                             </div>
                             
                             <!-- Voice Wave Canvas -->
-                            <div class="flex-1 h-8 flex items-center bg-[#f2f4f0]/30 rounded-xl px-2 overflow-hidden">
+                            <div class="flex-1 h-8 flex items-center bg-[#f2f4f0]/30 rounded-xl px-1 sm:px-2 overflow-hidden min-w-0">
                                 <canvas id="audio-wave-canvas" class="w-full h-full"></canvas>
                             </div>
                             
-                            <div class="flex items-center gap-2 shrink-0">
-                                <button id="cancel-record-btn" class="w-9 h-9 rounded-full flex items-center justify-center text-red-500 hover:bg-red-50 transition-colors cursor-pointer bg-transparent border-none" title="{{ __t('cancel_recording') }}">
-                                    <span class="material-symbols-outlined text-[20px]">delete</span>
+                            <div class="flex items-center gap-1 sm:gap-2 shrink-0">
+                                <button id="cancel-record-btn" class="w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-red-500 hover:bg-red-50 transition-colors cursor-pointer bg-transparent border-none shrink-0" title="{{ __t('cancel_recording') }}">
+                                    <span class="material-symbols-outlined text-[18px] sm:text-[20px]">delete</span>
                                 </button>
-                                <button id="stop-send-record-btn" class="w-9 h-9 rounded-full bg-primary text-white flex items-center justify-center hover:bg-primary-container transition-all shadow-md cursor-pointer border-none" title="{{ __t('stop_and_send') }}">
-                                    <span class="material-symbols-outlined text-[18px]">send</span>
+                                <button id="stop-send-record-btn" class="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-primary text-white flex items-center justify-center hover:bg-primary-container transition-all shadow-md cursor-pointer border-none shrink-0" title="{{ __t('stop_and_send') }}">
+                                    <span class="material-symbols-outlined text-[16px] sm:text-[18px]">send</span>
                                 </button>
                             </div>
                         </div>
 
-                        <div id="regular-input-row" class="flex items-end gap-3 w-full">
-                            <div class="flex-1 min-h-[38px] flex items-center">
+                        <div id="regular-input-row" class="flex items-end gap-1.5 sm:gap-3 w-full min-w-0">
+                            <div class="flex-1 min-h-[36px] sm:min-h-[38px] flex items-center min-w-0">
                                 <textarea id="message-textarea" class="w-full bg-transparent border-none focus:ring-0 focus:outline-none resize-none text-xs text-on-surface placeholder:text-outline py-2 px-1 max-h-24 scrollbar-none" placeholder="{{ __t('type_message_placeholder') }}" rows="1"></textarea>
                             </div>
                             
-                            <div class="flex items-center gap-1.5 mb-1 shrink-0">
-                                <button id="image-select-btn" class="w-9 h-9 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface hover:text-primary transition-colors cursor-pointer bg-transparent border-none" title="{{ __t('send_image_title') }}">
-                                    <span class="material-symbols-outlined text-[20px]">image</span>
+                            <div class="flex items-center gap-0.5 sm:gap-1.5 mb-1 shrink-0">
+                                <button id="image-select-btn" class="w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface hover:text-primary transition-colors cursor-pointer bg-transparent border-none shrink-0" title="{{ __t('send_image_title') }}">
+                                    <span class="material-symbols-outlined text-[18px] sm:text-[20px]">image</span>
                                 </button>
                                 <input type="file" id="image-upload-input" accept="image/*" class="hidden">
                                 
-                                <button id="video-select-btn" class="w-9 h-9 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface hover:text-primary transition-colors cursor-pointer bg-transparent border-none" title="{{ __t('send_video_title') }}">
-                                    <span class="material-symbols-outlined text-[20px]">videocam</span>
+                                <button id="video-select-btn" class="w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface hover:text-primary transition-colors cursor-pointer bg-transparent border-none shrink-0" title="{{ __t('send_video_title') }}">
+                                    <span class="material-symbols-outlined text-[18px] sm:text-[20px]">videocam</span>
                                 </button>
                                 <input type="file" id="video-upload-input" accept="video/*" class="hidden">
                                 
-                                <button id="mic-btn" class="w-9 h-9 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface hover:text-primary transition-colors cursor-pointer bg-transparent border-none" title="{{ __t('send_voice_title') }}">
-                                    <span class="material-symbols-outlined text-[20px]">mic</span>
+                                <button id="mic-btn" class="w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface hover:text-primary transition-colors cursor-pointer bg-transparent border-none shrink-0" title="{{ __t('send_voice_title') }}">
+                                    <span class="material-symbols-outlined text-[18px] sm:text-[20px]">mic</span>
                                 </button>
-                                <button id="send-message-btn" class="w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center hover:bg-primary-container transition-all shadow-md shrink-0 {{ $dir === 'rtl' ? 'mr-1' : 'ml-1' }} cursor-pointer border-none">
-                                    <span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">send</span>
+                                <button id="send-message-btn" class="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-primary text-white flex items-center justify-center hover:bg-primary-container transition-all shadow-md shrink-0 {{ $dir === 'rtl' ? 'mr-0.5 sm:mr-1' : 'ml-0.5 sm:ml-1' }} cursor-pointer border-none">
+                                    <span class="material-symbols-outlined text-[16px] sm:text-[18px]" style="font-variation-settings: 'FILL' 1;">send</span>
                                 </button>
                             </div>
                         </div>
@@ -1461,7 +1461,7 @@
             if (isSelf) {
                 // Sent message style
                 messageHtml = `
-                    <div class="flex items-center gap-1 group/msg self-start max-w-[80%] text-right message-item animate-fade-in" data-id="${msg.id}" data-sender-name="${_tp.youLabel}" data-preview="${escapeHtml(previewText)}">
+                    <div class="flex items-center gap-1 group/msg self-start max-w-[85%] sm:max-w-[80%] text-right message-item animate-fade-in min-w-0" data-id="${msg.id}" data-sender-name="${_tp.youLabel}" data-preview="${escapeHtml(previewText)}">
                         <div class="flex flex-col gap-1 items-start">
                             <div class="bg-primary text-white rounded-2xl rounded-bl-sm ${paddingClass} shadow-sm relative">
                                 ${bubbleWithParent}
@@ -1509,7 +1509,7 @@
                 }
                 
                 messageHtml = `
-                    <div class="flex items-center gap-2 group/msg self-end flex-row-reverse max-w-[80%] text-right message-item animate-fade-in" data-id="${msg.id}" data-sender-name="${escapeHtml(senderName)}" data-preview="${escapeHtml(previewText)}">
+                    <div class="flex items-center gap-1.5 sm:gap-2 group/msg self-end flex-row-reverse max-w-[85%] sm:max-w-[80%] text-right message-item animate-fade-in min-w-0" data-id="${msg.id}" data-sender-name="${escapeHtml(senderName)}" data-preview="${escapeHtml(previewText)}">
                         <div class="w-8 h-8 rounded-full overflow-hidden shrink-0 mt-auto border border-outline-variant">
                             <img alt="${escapeHtml(senderName)}" class="w-full h-full object-cover" src="${activeAvatar}">
                         </div>
