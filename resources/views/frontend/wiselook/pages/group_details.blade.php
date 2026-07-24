@@ -1049,7 +1049,20 @@ $(document).ready(function() {
     });
 
     // --- Subject Support (Like) Handler ---
-    $(document).on('click', '.subject-support-btn', function() {
+    $(document).on('click', '.subject-support-btn', function(e) {
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        @guest
+            if (typeof window.openGuestModal === 'function') {
+                window.openGuestModal();
+            } else {
+                alert('يرجى تسجيل الدخول أو إنشاء حساب جديد لتتمكن من المشاركة في الموقع.');
+            }
+            return false;
+        @endguest
+
         const btn = $(this);
         const subjectId = btn.attr('data-subject-id');
         if (!subjectId) return;

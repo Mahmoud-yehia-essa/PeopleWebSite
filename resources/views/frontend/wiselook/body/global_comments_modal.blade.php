@@ -737,12 +737,16 @@ $(document).ready(function() {
     });
 
     // Toggle Support Post Action (with bulb glow animation)
-    $(document).on('click', '.post-support-action', function() {
+    $(document).on('click', '.post-support-action', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
         @guest
             if (typeof window.openGuestModal === 'function') {
                 window.openGuestModal();
+            } else {
+                alert('يرجى تسجيل الدخول أو إنشاء حساب جديد لتتمكن من المشاركة في الموقع.');
             }
-            return;
+            return false;
         @endguest
 
         const btn = $(this);
