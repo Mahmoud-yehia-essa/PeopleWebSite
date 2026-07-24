@@ -2489,7 +2489,11 @@
 
             $.ajax({
                 url: `/messages/${msgId}`,
-                type: 'DELETE',
+                type: 'POST',
+                data: {
+                    _method: 'DELETE',
+                    _token: $('meta[name="csrf-token"]').attr('content')
+                },
                 headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
                 success: function(response) {
                     if (response.status === 'success') {

@@ -31,7 +31,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/messages/contacts', [ChatController::class, 'fetchContacts']);
     Route::get('/messages/unread-count', [ChatController::class, 'getUnreadCount']);
     Route::post('/messages/mark-all-read', [ChatController::class, 'markAllMessagesRead']);
-    Route::delete('/messages/{messageId}', [ChatController::class, 'deleteMessage']);
+    Route::match(['delete', 'post'], '/messages/{messageId}', [ChatController::class, 'deleteMessage']);
     Route::post('/messages', [ChatController::class, 'sendMessage']);
 
     // مسارات المجموعات
