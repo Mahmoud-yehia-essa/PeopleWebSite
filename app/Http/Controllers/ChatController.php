@@ -328,7 +328,11 @@ class ChatController extends Controller
 
         // بث الحدث للمستقبل عبر الويب سوكيت
         // استخدام toOthers() يمنع تكرار الرسالة لدى الشخص المرسل نفسه عبر السوكيت لأنه أضافها بالفعل بيده في واجهته
-        broadcast(new MessageSent($message->load(['sender', 'parent.sender'])))->toOthers();
+        try {
+            broadcast(new MessageSent($message->load(['sender', 'parent.sender'])))->toOthers();
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Reverb Broadcast error in sendMessage: ' . $e->getMessage());
+        }
 
         // تحميل علاقة المرسل وتوفير روابط الملفات الكاملة للاستجابة
         $message->load(['sender', 'parent.sender']);
