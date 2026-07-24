@@ -1753,32 +1753,48 @@ $(document).ready(function() {
     });
     
     function handleStoryFileSelect(file) {
-        const type = file.type;
-        const size = file.size;
+        if (!file) return;
+        const type = file.type || '';
+        const name = file.name || '';
+        const size = file.size || 0;
         
-        if (type.startsWith('image/')) {
-            if (size > 5 * 1024 * 1024) {
-                toastr.error('حجم الصورة كبير جداً. الحد الأقصى 5 ميجابايت.');
-                fileInput.val('');
+        const isImage = (type && type.startsWith('image/')) || (name && /\.(jpg|jpeg|png|gif|webp|heic|heif|bmp|svg)$/i.test(name));
+        const isVideo = (type && type.startsWith('video/')) || (name && /\.(mp4|mov|avi|wmv|webm|m4v|3gp|mkv)$/i.test(name));
+        
+        if (isImage) {
+            if (size > 10 * 1024 * 1024) {
+                if (typeof toastr !== 'undefined') toastr.error('حجم الصورة كبير جداً. الحد الأقصى 10 ميجابايت.');
+                resetStoryUploadPreview();
                 return;
             }
-            imgPreview.attr('src', URL.createObjectURL(file)).removeClass('hidden');
-            vidPreview.addClass('hidden').attr('src', '');
-            previewWrapper.removeClass('hidden');
-            dropzone.addClass('hidden');
-        } else if (type.startsWith('video/')) {
-            if (size > 25 * 1024 * 1024) {
-                toastr.error('حجم الفيديو كبير جداً. الحد الأقصى 25 ميجابايت.');
-                fileInput.val('');
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                imgPreview.attr('src', e.target.result).removeClass('hidden');
+                vidPreview.addClass('hidden').attr('src', '');
+                previewWrapper.removeClass('hidden');
+                dropzone.addClass('hidden');
+            };
+            reader.onerror = function() {
+                if (typeof toastr !== 'undefined') toastr.error('تعذر عرض معاينة الصورة المختارة.');
+                resetStoryUploadPreview();
+            };
+            reader.readAsDataURL(file);
+
+        } else if (isVideo) {
+            if (size > 50 * 1024 * 1024) {
+                if (typeof toastr !== 'undefined') toastr.error('حجم الفيديو كبير جداً. الحد الأقصى 50 ميجابايت.');
+                resetStoryUploadPreview();
                 return;
             }
-            vidPreview.attr('src', URL.createObjectURL(file)).removeClass('hidden');
+            const videoUrl = URL.createObjectURL(file);
+            vidPreview.attr('src', videoUrl).removeClass('hidden');
             imgPreview.addClass('hidden').attr('src', '');
             previewWrapper.removeClass('hidden');
             dropzone.addClass('hidden');
         } else {
-            toastr.error('نوع الملف غير مدعوم. يرجى اختيار صورة أو فيديو.');
-            fileInput.val('');
+            if (typeof toastr !== 'undefined') toastr.error('نوع الملف غير مدعوم. يرجى اختيار صورة أو فيديو.');
+            resetStoryUploadPreview();
         }
     }
     
@@ -2472,11 +2488,11 @@ $(document).ready(function() {
                 </div>
 
                 <!-- Live Previews -->
-                <div id="story-preview-wrapper" class="hidden relative rounded-xl overflow-hidden border border-outline-variant bg-surface-container-low max-h-60 flex items-center justify-center">
-                    <img id="story-image-preview" src="" class="hidden max-h-60 max-w-full object-contain">
-                    <video id="story-video-preview" controls class="hidden max-h-60 max-w-full object-contain"></video>
-                    <button type="button" id="remove-story-media-btn" class="absolute top-2 right-2 p-1.5 bg-black/60 hover:bg-black/80 text-white rounded-full transition-all cursor-pointer flex items-center justify-center">
-                        <span class="material-symbols-outlined text-[16px]">close</span>
+                <div id="story-preview-wrapper" class="hidden relative rounded-xl overflow-hidden border border-outline-variant bg-slate-900 min-h-[220px] w-full flex items-center justify-center p-2">
+                    <img id="story-image-preview" src="" class="hidden max-h-64 w-auto max-w-full object-contain mx-auto rounded-lg">
+                    <video id="story-video-preview" controls class="hidden max-h-64 w-full object-contain mx-auto rounded-lg"></video>
+                    <button type="button" id="remove-story-media-btn" class="absolute top-3 right-3 p-2 bg-black/70 hover:bg-black/90 text-white rounded-full transition-all cursor-pointer flex items-center justify-center z-20 shadow-md">
+                        <span class="material-symbols-outlined text-[18px]">close</span>
                     </button>
                 </div>
                 
