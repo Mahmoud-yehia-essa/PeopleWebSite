@@ -547,12 +547,13 @@
                 <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-outline-variant/40"></div></div>
                 <span class="relative px-4 bg-white text-xs font-medium text-outline">{{ __t('or_via') }}</span>
             </div>
-            <div class="grid grid-cols-3 gap-2">
+            <div class="grid grid-cols-2 gap-2">
                 <a href="{{ route('auth.google') }}" class="flex items-center justify-center gap-1.5 py-3 border border-outline-variant/60 rounded-xl font-label-md text-xs text-on-surface hover:bg-surface-container-low transition-all">
                     <img alt="Google" class="w-4 h-4" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAs4w4inxc0CZZpTSAxsj1_UcmeKjiU6-CXbN8Tpz6hRA6ENcTX2SCWVWLFkf6GtywYFFcLdnvvhfIa7m-9aLsxm5Fe1wOrBc1_P1jY2SHlT3TwyEOHwFGsD4cOTBDRpkCMGCviSSfjEUSlR5tC67TxxazAcbWbAJKtVw9NW32SDU05997cjOLtxRc-7h0B50weyrhC3UN4NLqV6Te9do61Ot8eOKUWH0yBLoR4fjijwRHkxe4An2UHzmqDnwP9oEfzg0vQH9sIDNf7">
                     {{ __t('google_login') }}
                 </a>
-                <a href="{{ route('auth.facebook') }}" class="flex items-center justify-center gap-1.5 py-3 border border-outline-variant/60 rounded-xl font-label-md text-xs text-on-surface hover:bg-surface-container-low transition-all">
+                {{-- Facebook Auth Disabled Temporarily --}}
+                <a href="{{ route('auth.facebook') }}" class="hidden items-center justify-center gap-1.5 py-3 border border-outline-variant/60 rounded-xl font-label-md text-xs text-on-surface hover:bg-surface-container-low transition-all">
                     <img alt="Facebook" class="w-4 h-4" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDsnVL8artnWKkhGWutFl3Df9e45OOUy6VZu19Hn-1kg8SwdMvEmGo4_jFp2WILwxcMdSZ2l6AId1iHykhW5hKMixebwD4QCzM5RhwdF14lk_Si0Gm1sP_KTe6P_TCjdE1EMQcFLZeOgCgk5wvf3cYUG7AntjpmOIGercHVdpjn5UEH10Jcb-xH-Jl8u0NDCq6_f9HUP72LPqDGVN4V1HvuUITlHKXMlwmdIFaod179KUnit6zYjJ3MkrFYVBWCNCgusF4wBKfj1ZPx">
                     {{ __t('facebook_login') }}
                 </a>
