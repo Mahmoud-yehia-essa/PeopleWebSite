@@ -184,79 +184,118 @@ class ProfileController extends Controller
     /**
      * Update frontend profile information.
      */
+    /**
+     * Update frontend profile information.
+     */
     public function updateProfile(Request $request): RedirectResponse
     {
-        $user = Auth::user();
+        try {
+            $user = Auth::user();
 
-        // التحقق من أخطاء الرفع الناتجة عن قيود السيرفر (مثل حجم الملف في php.ini)
-        if (isset($_FILES['photo']) && $_FILES['photo']['error'] === UPLOAD_ERR_INI_SIZE) {
-            return redirect()->back()->withInput()->withErrors(['photo' => 'حجم الصورة الشخصية كبير جداً ويتجاوز الحد الأقصى المسموح به على السيرفر.']);
-        }
-        if (isset($_FILES['cover_photo']) && $_FILES['cover_photo']['error'] === UPLOAD_ERR_INI_SIZE) {
-            return redirect()->back()->withInput()->withErrors(['cover_photo' => 'حجم صورة الغلاف كبير جداً ويتجاوز الحد الأقصى المسموح به على السيرفر.']);
-        }
-
-        $request->validate([
-            'fname' => 'required|string|max:50',
-            'lname' => 'required|string|max:50',
-            'email' => 'required|email|max:255|unique:users,email,' . $user->id,
-            'password' => 'nullable|confirmed|min:8',
-            'phone' => 'nullable|string|max:20',
-            'country_data' => 'required|string',
-            'address' => 'nullable|string|max:255',
-            'bio' => 'nullable|string|max:1000',
-            'photo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:10240',
-            'cover_photo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:10240',
-        ]);
-
-        $countryData = json_decode($request->country_data, true);
-        $dial = $countryData['dial'] ?? '';
-        $flag = $countryData['flag'] ?? '';
-
-        $phoneNumber = $request->phone ? ($dial . $request->phone) : null;
-
-        // Profile Photo
-        if ($request->hasFile('photo')) {
-            $file = $request->file('photo');
-            if ($user->profile_picture && \Illuminate\Support\Facades\File::exists(public_path('new_wiselook/uploads/' . $user->profile_picture))) {
-                \Illuminate\Support\Facades\File::delete(public_path('new_wiselook/uploads/' . $user->profile_picture));
+            // التحقق من وجود أخطاء في رفع الملفات ناتجة عن قيود PHP والسيرفر (مثل max_filesize)
+            if (isset($_FILES['photo']) && $_FILES['photo']['error'] !== UPLOAD_ERR_OK && $_FILES['photo']['error'] !== UPLOAD_ERR_NO_FILE) {
+                $err = $_FILES['photo']['error'];
+                if ($err === UPLOAD_ERR_INI_SIZE || $err === UPLOAD_ERR_FORM_SIZE) {
+                    return redirect()->back()->withInput()->withErrors(['photo' => 'حجم الصورة الشخصية كبير جداً ويتجاوز الحد الأقصى المسموح به على السيرفر.']);
+                }
+                return redirect()->back()->withInput()->withErrors(['photo' => 'حدث خطأ في رفع الصورة الشخصية على السيرفر (كود الخطأ: ' . $err . ').']);
             }
-            $photoName = date('YmdHis') . '_profile.' . $file->getClientOriginalExtension();
-            $file->move(public_path('new_wiselook/uploads'), $photoName);
-            $user->profile_picture = $photoName;
-        }
 
-        // Cover Photo
-        if ($request->hasFile('cover_photo')) {
-            $file = $request->file('cover_photo');
-            if ($user->cover_picture && \Illuminate\Support\Facades\File::exists(public_path('new_wiselook/uploads/' . $user->cover_picture))) {
-                \Illuminate\Support\Facades\File::delete(public_path('new_wiselook/uploads/' . $user->cover_picture));
+            if (isset($_FILES['cover_photo']) && $_FILES['cover_photo']['error'] !== UPLOAD_ERR_OK && $_FILES['cover_photo']['error'] !== UPLOAD_ERR_NO_FILE) {
+                $err = $_FILES['cover_photo']['error'];
+                if ($err === UPLOAD_ERR_INI_SIZE || $err === UPLOAD_ERR_FORM_SIZE) {
+                    return redirect()->back()->withInput()->withErrors(['cover_photo' => 'حجم صورة الغلاف كبير جداً ويتجاوز الحد الأقصى المسموح به على السيرفر.']);
+                }
+                return redirect()->back()->withInput()->withErrors(['cover_photo' => 'حدث خطأ في رفع صورة الغلاف على السيرفر (كود الخطأ: ' . $err . ').']);
             }
-            $coverName = date('YmdHis') . '_cover.' . $file->getClientOriginalExtension();
-            $file->move(public_path('new_wiselook/uploads'), $coverName);
-            $user->cover_picture = $coverName;
+
+            $request->validate([
+                'fname' => 'required|string|max:50',
+                'lname' => 'required|string|max:50',
+                'email' => 'required|email|max:255|unique:users,email,' . $user->id,
+                'password' => 'nullable|confirmed|min:8',
+                'phone' => 'nullable|string|max:20',
+                'country_data' => 'required|string',
+                'address' => 'nullable|string|max:255',
+                'bio' => 'nullable|string|max:1000',
+                'photo' => 'nullable|file|mimes:jpeg,png,jpg,gif,webp,heic|max:10240',
+                'cover_photo' => 'nullable|file|mimes:jpeg,png,jpg,gif,webp,heic|max:10240',
+            ]);
+
+            $countryData = json_decode($request->country_data, true);
+            $dial = $countryData['dial'] ?? '';
+            $flag = $countryData['flag'] ?? '';
+
+            $phoneNumber = $request->phone ? ($dial . $request->phone) : null;
+
+            // مسار مجلد المرفقات مع إنشائه إذا لم يكن موجوداً
+            $uploadDir = public_path('new_wiselook/uploads');
+            if (!\Illuminate\Support\Facades\File::exists($uploadDir)) {
+                \Illuminate\Support\Facades\File::makeDirectory($uploadDir, 0777, true, true);
+            }
+
+            // Profile Photo
+            if ($request->hasFile('photo')) {
+                $file = $request->file('photo');
+                if ($file->isValid()) {
+                    try {
+                        if ($user->profile_picture && \Illuminate\Support\Facades\File::exists($uploadDir . '/' . $user->profile_picture)) {
+                            \Illuminate\Support\Facades\File::delete($uploadDir . '/' . $user->profile_picture);
+                        }
+                        $ext = strtolower($file->getClientOriginalExtension() ?: $file->extension() ?: 'jpg');
+                        $photoName = date('YmdHis') . '_' . uniqid() . '_profile.' . $ext;
+                        $file->move($uploadDir, $photoName);
+                        $user->profile_picture = $photoName;
+                    } catch (\Exception $e) {
+                        \Illuminate\Support\Facades\Log::error('Profile photo upload error: ' . $e->getMessage());
+                        return redirect()->back()->withInput()->withErrors(['photo' => 'تعذر حفظ الصورة الشخصية على السيرفر. يرجى التأكد من صلاحيات مجلد الرفع.']);
+                    }
+                }
+            }
+
+            // Cover Photo
+            if ($request->hasFile('cover_photo')) {
+                $file = $request->file('cover_photo');
+                if ($file->isValid()) {
+                    try {
+                        if ($user->cover_picture && \Illuminate\Support\Facades\File::exists($uploadDir . '/' . $user->cover_picture)) {
+                            \Illuminate\Support\Facades\File::delete($uploadDir . '/' . $user->cover_picture);
+                        }
+                        $ext = strtolower($file->getClientOriginalExtension() ?: $file->extension() ?: 'jpg');
+                        $coverName = date('YmdHis') . '_' . uniqid() . '_cover.' . $ext;
+                        $file->move($uploadDir, $coverName);
+                        $user->cover_picture = $coverName;
+                    } catch (\Exception $e) {
+                        \Illuminate\Support\Facades\Log::error('Cover photo upload error: ' . $e->getMessage());
+                        return redirect()->back()->withInput()->withErrors(['cover_photo' => 'تعذر حفظ صورة الغلاف على السيرفر. يرجى التأكد من صلاحيات مجلد الرفع.']);
+                    }
+                }
+            }
+
+            $user->first_name = $request->fname;
+            $user->last_name = $request->lname;
+            $user->email = $request->email;
+            if ($request->filled('password')) {
+                $user->password = \Illuminate\Support\Facades\Hash::make($request->password);
+                $user->password_hash = md5($request->password);
+            }
+            $user->phone_number = $phoneNumber;
+            $user->country_flag = $flag;
+            $user->address = $request->address;
+            $user->bio = $request->bio;
+
+            $user->save();
+
+            $notification = [
+                'message' => 'تم تحديث ملفك الشخصي بنجاح',
+                'alert-type' => 'success'
+            ];
+
+            return redirect()->route('profile.edit')->with($notification);
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Update profile error: ' . $e->getMessage());
+            return redirect()->back()->withInput()->withErrors(['error' => 'حدث خطأ أثناء تحديث البيانات: ' . $e->getMessage()]);
         }
-
-        $user->first_name = $request->fname;
-        $user->last_name = $request->lname;
-        $user->email = $request->email;
-        if ($request->filled('password')) {
-            $user->password = \Illuminate\Support\Facades\Hash::make($request->password);
-            $user->password_hash = md5($request->password);
-        }
-        $user->phone_number = $phoneNumber;
-        $user->country_flag = $flag;
-        $user->address = $request->address;
-        $user->bio = $request->bio;
-
-        $user->save();
-
-        $notification = [
-            'message' => 'تم تحديث ملفك الشخصي بنجاح',
-            'alert-type' => 'success'
-        ];
-
-        return redirect()->route('profile.edit')->with($notification);
     }
 
     /**
