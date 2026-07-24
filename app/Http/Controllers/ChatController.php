@@ -372,8 +372,12 @@ class ChatController extends Controller
 
         $message->delete();
 
-        // Broadcast deletion to receiver in real time
-        broadcast(new MessageDeleted((int) $messageId, $receiverId))->toOthers();
+        // Broadcast deletion to receiver in real time safely
+        try {
+            broadcast(new MessageDeleted((int) $messageId, $receiverId))->toOthers();
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Broadcast error in deleteMessage: ' . $e->getMessage());
+        }
 
         return response()->json(['status' => 'success']);
     }
