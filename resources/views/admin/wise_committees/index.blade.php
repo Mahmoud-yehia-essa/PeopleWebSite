@@ -454,7 +454,7 @@
                                              data-email="{{ $u->email }}"
                                              style="cursor: pointer; transition: background 0.15s;"
                                              onclick="wiseSelectMember(this)">
-                                            <img src="{{ (!empty($u->profile_picture) && $u->profile_picture != 'non') ? 'http://localhost:8888/new_wiselook/uploads/'.basename($u->profile_picture) : url('upload/no_image.jpg') }}" 
+                                            <img src="{{ $u->avatar_url }}" 
                                                  class="rounded-circle" style="width: 36px; height: 36px; object-fit: cover; border: 2px solid #e9ecef;">
                                             <div>
                                                 <div class="fw-bold text-dark" style="font-size: 13px;">{{ $u->first_name }} {{ $u->last_name }}</div>
