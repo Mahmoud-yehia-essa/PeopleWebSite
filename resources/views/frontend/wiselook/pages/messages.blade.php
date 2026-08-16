@@ -1735,6 +1735,8 @@
                 }).listen('MessageDeleted', (e) => {
                     const msgId = e.message_id || e.id;
                     if (msgId) removeMessageFromUI(msgId);
+                }).listenForWhisper('typing', (e) => {
+                    handleDirectTypingWhisper(e);
                 });
             }
             
@@ -3074,6 +3076,30 @@
             }
         }
 
+        // --- Helper function for real-time typing whisper handling ---
+        let activeUserTypingTimeout = null;
+        function handleDirectTypingWhisper(e) {
+            console.log('Received typing whisper:', e);
+            if (e.chat_type === 'group' || e.group_id) return;
+            const senderId = parseInt(e.sender_id || e.user_id || e.senderId);
+            if (!activeGroupId && activeUserId && senderId === activeUserId) {
+                clearTimeout(activeUserTypingTimeout);
+                if (e.typing === true || e.is_typing === true) {
+                    $('#active-user-status-dot').removeClass('bg-secondary bg-slate-400 bg-green-500').addClass('bg-primary animate-pulse');
+                    $('#active-user-status-text').text(_tp.typingIndicator);
+                    activeUserTypingTimeout = setTimeout(() => {
+                        const isOnline = onlineUsers.has(activeUserId);
+                        $('#active-user-status-dot').removeClass('bg-primary animate-pulse bg-slate-400 bg-green-500').addClass(isOnline ? 'bg-green-500' : 'bg-slate-400');
+                        $('#active-user-status-text').text(isOnline ? _tp.onlineNow : _tp.offlineNow);
+                    }, 3500);
+                } else {
+                    const isOnline = onlineUsers.has(activeUserId);
+                    $('#active-user-status-dot').removeClass('bg-primary animate-pulse bg-slate-400 bg-green-500').addClass(isOnline ? 'bg-green-500' : 'bg-slate-400');
+                    $('#active-user-status-text').text(isOnline ? _tp.onlineNow : _tp.offlineNow);
+                }
+            }
+        }
+
         // --- Helper functions for user online/offline status UI updates ---
         function updateUserStatusUI(userId, isOnline) {
             userId = parseInt(userId);
@@ -3245,20 +3271,7 @@
                     }
                 })
                 .listenForWhisper('typing', (e) => {
-                    console.log('Received typing whisper:', e);
-                    if (e.chat_type === 'group' || e.group_id) return;
-                    if (!activeGroupId && activeUserId && parseInt(e.sender_id) === parseInt(activeUserId)) {
-                        if (e.typing) {
-                            // Show typing indicator in header status
-                            $('#active-user-status-dot').removeClass('bg-secondary bg-slate-400 bg-green-500').addClass('bg-primary animate-pulse');
-                            $('#active-user-status-text').text(_tp.typingIndicator);
-                        } else {
-                            // Hide typing indicator in header status
-                            const isOnline = onlineUsers.has(activeUserId);
-                            $('#active-user-status-dot').removeClass('bg-primary animate-pulse bg-slate-400 bg-green-500').addClass(isOnline ? 'bg-green-500' : 'bg-slate-400');
-                            $('#active-user-status-text').text(isOnline ? _tp.onlineNow : _tp.offlineNow);
-                        }
-                    }
+                    handleDirectTypingWhisper(e);
                 });
 
             // Listen for real-time message deletions on own private channel
@@ -3852,31 +3865,34 @@
 
             // Typing indicator event trigger
             $('#message-textarea').on('input', function() {
-                if (activeUserId && activeConversationChannel) {
-                    if (!typingTimeout) {
-                        activeConversationChannel.whisper('typing', {
+                if (activeUserId) {
+                    const sendDirectTyping = (isTyping) => {
+                        const payload = {
                             chat_type: 'direct',
                             sender_id: authUserId,
                             user_id: authUserId,
                             user_name: authUserName,
                             recipient_id: activeUserId,
-                            typing: true
-                        });
+                            typing: isTyping,
+                            is_typing: isTyping
+                        };
+                        if (activeConversationChannel) {
+                            activeConversationChannel.whisper('typing', payload);
+                        }
+                        if (window.Echo) {
+                            window.Echo.private(`chat.${activeUserId}`).whisper('typing', payload);
+                            window.Echo.private(`chat.${authUserId}`).whisper('typing', payload);
+                        }
+                    };
+
+                    if (!typingTimeout) {
+                        sendDirectTyping(true);
                     }
                     
                     clearTimeout(typingTimeout);
                     
                     typingTimeout = setTimeout(function() {
-                        if (activeUserId && activeConversationChannel) {
-                            activeConversationChannel.whisper('typing', {
-                                chat_type: 'direct',
-                                sender_id: authUserId,
-                                user_id: authUserId,
-                                user_name: authUserName,
-                                recipient_id: activeUserId,
-                                typing: false
-                            });
-                        }
+                        sendDirectTyping(false);
                         typingTimeout = null;
                     }, 2500);
                 } else if (activeGroupId && activeConversationChannel) {
