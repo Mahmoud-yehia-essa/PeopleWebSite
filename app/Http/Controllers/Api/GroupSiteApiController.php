@@ -267,6 +267,105 @@ class GroupSiteApiController extends Controller
     }
 
     /**
+     * 4.6 تعديل بيانات المجموعة (متاحة لمنشئ المجموعة فقط)
+     */
+    public function updateGroup(Request $request)
+    {
+        $currentUser = $request->user() ?? auth('sanctum')->user();
+        if (!$currentUser && $request->input('user_id')) {
+            $currentUser = User::find($request->input('user_id'));
+        }
+        if (!$currentUser) {
+            return response()->json(['success' => false, 'message' => 'Unauthenticated'], 401);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'group_id'    => 'required|integer|exists:group_sites,id',
+            'title'       => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'status'      => 'nullable|in:open,closed',
+            'invite_code' => 'nullable|string|max:255',
+            'image'       => 'nullable|image|mimes:jpeg,png,jpg,gif|max:8192',
+            'logo'        => 'nullable|image|mimes:jpeg,png,jpg,gif|max:8192',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['success' => false, 'message' => $validator->errors()->first()], 422);
+        }
+
+        $group = GroupSite::find($request->group_id);
+        if (!$group) {
+            return response()->json(['success' => false, 'message' => 'المجموعة غير موجودة'], 404);
+        }
+
+        if ((int)$group->admin_user_id !== (int)$currentUser->id) {
+            return response()->json(['success' => false, 'message' => 'غير مصرح لك بتعديل هذه المجموعة'], 403);
+        }
+
+        DB::beginTransaction();
+        try {
+            $group->title = $request->title;
+            if ($request->has('description')) {
+                $group->description = $request->description;
+            }
+            if ($request->has('status') && in_array($request->status, ['open', 'closed'])) {
+                $group->status = $request->status;
+                if ($group->status === 'closed' && $request->has('invite_code')) {
+                    $group->invite_code = $request->invite_code;
+                }
+            }
+
+            if ($request->hasFile('image')) {
+                $file = $request->file('image');
+                $filename = date('YmdHis') . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+                $file->move(public_path('upload/group_site_images'), $filename);
+                $group->image_path = $filename;
+            }
+
+            if ($request->hasFile('logo')) {
+                $logoFile = $request->file('logo');
+                $logoName = date('YmdHis') . '_logo_' . uniqid() . '.' . $logoFile->getClientOriginalExtension();
+                $logoFile->move(public_path('upload/group_site_logos'), $logoName);
+                $group->logo_path = $logoName;
+            }
+
+            $group->save();
+            DB::commit();
+
+            $groupImg = asset('images/default_group.png');
+            if ($group->image_path) {
+                $groupImg = filter_var($group->image_path, FILTER_VALIDATE_URL)
+                    ? $group->image_path
+                    : asset('upload/group_site_images/' . $group->image_path);
+            }
+
+            $logoImg = null;
+            if ($group->logo_path) {
+                $logoImg = filter_var($group->logo_path, FILTER_VALIDATE_URL)
+                    ? $group->logo_path
+                    : asset('upload/group_site_logos/' . basename($group->logo_path));
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'تم تحديث بيانات المجموعة بنجاح',
+                'group'   => [
+                    'id'             => (int)$group->id,
+                    'title'          => $group->title,
+                    'description'    => $group->description ?? '',
+                    'image_path'     => $groupImg,
+                    'logo_path'      => $logoImg,
+                    'status'         => $group->status,
+                    'admin_user_id'  => (int)$group->admin_user_id,
+                ]
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['success' => false, 'message' => 'فشل تحديث المجموعة: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
      * 5. تفاصيل المجموعة ومواضيعها
      */
     public function getGroupDetails(Request $request)

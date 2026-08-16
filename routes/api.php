@@ -152,6 +152,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::match(['get', 'post'], 'leave.php', [GroupSiteApiController::class, 'leaveGroup']);
         Route::match(['get', 'post'], 'delete.php', [GroupSiteApiController::class, 'deleteGroup']);
         Route::match(['get', 'post'], 'create.php', [GroupSiteApiController::class, 'createGroup']);
+        Route::match(['get', 'post'], 'update.php', [GroupSiteApiController::class, 'updateGroup']);
         Route::match(['get', 'post'], 'add_subject.php', [GroupSiteApiController::class, 'addSubject']);
         Route::match(['get', 'post'], 'toggle_reaction.php', [GroupSiteApiController::class, 'toggleSubjectReaction']);
         Route::match(['get', 'post'], 'add_comment.php', [GroupSiteApiController::class, 'addSubjectComment']);

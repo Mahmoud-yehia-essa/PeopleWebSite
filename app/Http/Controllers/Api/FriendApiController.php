@@ -72,21 +72,37 @@ class FriendApiController extends Controller
         // جلب بيانات الحسابات المستهدفة بالـ IDs المستخرجة
         $users = User::whereIn('id', $userIds)->get();
 
+        $formatAvatar = function ($raw) {
+            if (empty($raw) || $raw === 'non' || $raw === 'null' || $raw === 'undefined') {
+                return null;
+            }
+            $raw = trim($raw);
+            if (str_starts_with($raw, 'file://') || str_starts_with($raw, 'file:/')) {
+                $raw = preg_replace('/^file:\/+/i', '', $raw);
+            }
+            if (empty($raw)) return null;
+            return filter_var($raw, FILTER_VALIDATE_URL) ? $raw : asset('new_wiselook/uploads/' . ltrim($raw, '/'));
+        };
+
         // صياغة المخرجات بدقة لمطابقة واجهة تطبيق الموبايل
-        $formattedData = $users->map(function($user) use ($currentUser) {
+        $formattedData = $users->map(function($user) use ($currentUser, $formatAvatar) {
             // فحص هل هذا الحساب يعتبر صديقاً فعلياً للمستخدم الحالي (Bearer Token)
-            $isFriendCheck = Friendship::where('is_active', 1)
-                ->where(function($q) use ($currentUser, $user) {
-                    $q->where('sender_id', $currentUser->id)->where('receiver_id', $user->id);
-                })->orWhere(function($q) use ($currentUser, $user) {
-                    $q->where('sender_id', $user->id)->where('receiver_id', $currentUser->id);
-                })->exists();
+            $isFriendCheck = false;
+            if ($currentUser) {
+                $isFriendCheck = Friendship::where('is_active', 1)
+                    ->where(function($q) use ($currentUser, $user) {
+                        $q->where('sender_id', $currentUser->id)->where('receiver_id', $user->id);
+                    })->orWhere(function($q) use ($currentUser, $user) {
+                        $q->where('sender_id', $user->id)->where('receiver_id', $currentUser->id);
+                    })->exists();
+            }
 
             return [
                 'id'              => (int)$user->id,
                 'first_name'      => $user->first_name,
                 'last_name'       => $user->last_name,
-                'profile_picture' => $user->profile_picture,
+                'profile_picture' => $formatAvatar($user->profile_picture),
+                'avatar'          => $formatAvatar($user->profile_picture),
                 'isFriend'        => $isFriendCheck,
                 'type'            => 'friend'
             ];
