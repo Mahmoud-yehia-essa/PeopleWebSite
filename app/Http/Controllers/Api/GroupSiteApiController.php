@@ -474,6 +474,7 @@ class GroupSiteApiController extends Controller
                 'image_path'     => $groupImg,
                 'logo_path'      => $logoImg,
                 'status'         => $group->status,
+                'invite_code'    => $group->invite_code ?? '',
                 'admin_user_id'  => (int)$group->admin_user_id,
                 'admin_name'     => $admin ? trim(($admin->first_name ?? '') . ' ' . ($admin->last_name ?? '')) : 'مشرف المجموعة',
                 'admin_avatar'   => $adminAvatar,
