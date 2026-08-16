@@ -3185,6 +3185,8 @@
                     }).listen('MessageDeleted', (e) => {
                         const msgId = e.message_id || e.id;
                         if (msgId) removeMessageFromUI(msgId);
+                    }).listenForWhisper('typing', (e) => {
+                        handleDirectTypingWhisper(e);
                     });
                 }
 
