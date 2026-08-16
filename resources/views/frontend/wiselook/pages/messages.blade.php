@@ -1053,7 +1053,8 @@
                     }
                 });
 
-                await agoraClient.join(appId, channelName, token, String(uid));
+                const numericUid = parseInt(uid, 10) || null;
+                await agoraClient.join(appId, channelName, token, numericUid);
                 localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
                 await agoraClient.publish([localAudioTrack]);
 
