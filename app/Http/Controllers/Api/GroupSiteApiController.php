@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Str;
 use App\Models\GroupSite;
 use App\Models\GroupSiteUser;
 use App\Models\GroupSubject;
@@ -227,7 +228,9 @@ class GroupSiteApiController extends Controller
             $group->title = $request->title;
             $group->description = $request->description;
             $group->status = $request->status;
-            $group->invite_code = $request->status === 'closed' ? $request->invite_code : null;
+            $group->invite_code = $request->status === 'closed'
+                ? ($request->filled('invite_code') ? $request->invite_code : 'WISE-' . strtoupper(Str::random(6)))
+                : null;
             $group->admin_user_id = $currentUser->id;
 
             if ($request->hasFile('image')) {
@@ -311,8 +314,14 @@ class GroupSiteApiController extends Controller
             }
             if ($request->has('status') && in_array($request->status, ['open', 'closed'])) {
                 $group->status = $request->status;
-                if ($group->status === 'closed' && $request->has('invite_code')) {
-                    $group->invite_code = $request->invite_code;
+                if ($group->status === 'closed') {
+                    if ($request->filled('invite_code')) {
+                        $group->invite_code = $request->invite_code;
+                    } elseif (empty($group->invite_code)) {
+                        $group->invite_code = 'WISE-' . strtoupper(Str::random(6));
+                    }
+                } else {
+                    $group->invite_code = null;
                 }
             }
 
@@ -386,6 +395,11 @@ class GroupSiteApiController extends Controller
 
         if (!$group) {
             return response()->json(['success' => false, 'message' => 'المجموعة غير موجودة'], 404);
+        }
+
+        if ($group->status === 'closed' && empty($group->invite_code)) {
+            $group->invite_code = 'WISE-' . strtoupper(Str::random(6));
+            $group->save();
         }
 
         $admin = $group->admin;
