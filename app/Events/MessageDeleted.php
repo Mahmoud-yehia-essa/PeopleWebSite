@@ -27,11 +27,9 @@ class MessageDeleted implements ShouldBroadcastNow
     {
         $channels = [
             new PrivateChannel('chat.' . $this->receiverId),
-            new PrivateChannel('private-chat.' . $this->receiverId),
         ];
         if ($this->senderId) {
             $channels[] = new PrivateChannel('chat.' . $this->senderId);
-            $channels[] = new PrivateChannel('private-chat.' . $this->senderId);
         }
         return $channels;
     }

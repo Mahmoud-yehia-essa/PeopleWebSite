@@ -426,11 +426,21 @@ class ChatController extends Controller
     // حذف رسالة (من قِبَل المرسل فقط)
     public function deleteMessage(Request $request, $messageId)
     {
-        $userId = auth('sanctum')->id() ?? Auth::id();
+        $userId = auth('sanctum')->id() ?? ($request->user() ? $request->user()->id : Auth::id());
+        if (!$userId) {
+            $bearerToken = $request->bearerToken();
+            if ($bearerToken) {
+                $pat = \Laravel\Sanctum\PersonalAccessToken::findToken($bearerToken);
+                if ($pat) {
+                    $userId = $pat->tokenable_id;
+                }
+            }
+        }
+
         $message = Message::find($messageId);
 
         if (!$message) {
-            return response()->json(['status' => 'error', 'message' => 'الرسالة غير موجودة.'], 404);
+            return response()->json(['status' => 'success', 'success' => true, 'message' => 'تم حذف الرسالة بنجاح']);
         }
 
         // Only the sender of the message is allowed to delete it

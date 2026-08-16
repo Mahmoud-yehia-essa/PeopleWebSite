@@ -3285,6 +3285,12 @@
                         removeMessageFromUI(msgId);
                     }
                 })
+                .listen('MessageDeleted', (e) => {
+                    const msgId = e.message_id || e.id;
+                    if (msgId) {
+                        removeMessageFromUI(msgId);
+                    }
+                })
                 .listen('.GroupMessageSent', (e) => {
                     console.log('New group message received via WebSocket:', e);
                     

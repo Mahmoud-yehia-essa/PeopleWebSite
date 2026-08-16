@@ -293,7 +293,7 @@ class ChatApiController extends Controller
 
         $message = Message::find($targetMsgId);
         if (!$message) {
-            return response()->json(['success' => false, 'status' => 'error', 'message' => 'الرسالة غير موجودة.'], 404);
+            return response()->json(['success' => true, 'status' => 'success', 'message' => 'الرسالة غير موجودة أو تم حذفها مسبقاً.'], 200);
         }
 
         // Only the sender (or participant) is allowed to delete it
@@ -316,7 +316,6 @@ class ChatApiController extends Controller
         $message->delete();
 
         try {
-            broadcast(new MessageDeleted((int)$targetMsgId, $receiverId, $senderId));
             event(new MessageDeleted((int)$targetMsgId, $receiverId, $senderId));
         } catch (\Throwable $e) {
             \Illuminate\Support\Facades\Log::warning('Reverb Broadcast Delete Error: ' . $e->getMessage());
