@@ -93,7 +93,6 @@ class MiscApiController extends Controller
 
         // ب. جلب الإشعارات الأساسية المسجلة في جدول notifications (آخر 100 إشعار)
         $dbNotifications = \Illuminate\Support\Facades\DB::table('notifications')
-            ->where('notifiable_type', 'App\Models\User')
             ->where('notifiable_id', $currentUser->id)
             ->latest()
             ->limit(100)
@@ -179,14 +178,14 @@ class MiscApiController extends Controller
                 ->where('content_type_id', 1)
                 ->where('is_active', 1)
                 ->where('user_id', '!=', $currentUser->id)
-                ->whereIn('post_id', $userPostIds)
+                ->whereIn('content_id', $userPostIds)
                 ->latest()
                 ->limit(25)
                 ->get();
 
             foreach ($postLikes as $like) {
                 if ($like->user && $like->post) {
-                    $dedupKey = "like_{$like->user->id}_{$like->post->id}";
+                    $dedupKey = "like_{$like->user->id}_{$like->content_id}";
                     if (isset($existingNotificationKeys[$dedupKey])) continue;
                     $existingNotificationKeys[$dedupKey] = true;
 
@@ -200,7 +199,7 @@ class MiscApiController extends Controller
                         'sender_id'   => (int)$like->user->id,
                         'sender_name' => trim($like->user->first_name . ' ' . $like->user->last_name),
                         'avatar'      => $formatAvatar($like->user->profile_picture),
-                        'post_id'     => (int)$like->post->id,
+                        'post_id'     => (int)$like->content_id,
                         'created_at'  => $like->created_at
                     ]);
                 }
@@ -216,7 +215,7 @@ class MiscApiController extends Controller
 
             foreach ($postComments as $comment) {
                 if ($comment->user && $comment->post) {
-                    $dedupKey = "comment_{$comment->user->id}_{$comment->post->id}";
+                    $dedupKey = "comment_{$comment->user->id}_{$comment->post_id}";
                     if (isset($existingNotificationKeys[$dedupKey])) continue;
                     $existingNotificationKeys[$dedupKey] = true;
 
@@ -230,7 +229,7 @@ class MiscApiController extends Controller
                         'sender_id'   => (int)$comment->user->id,
                         'sender_name' => trim($comment->user->first_name . ' ' . $comment->user->last_name),
                         'avatar'      => $formatAvatar($comment->user->profile_picture),
-                        'post_id'     => (int)$comment->post->id,
+                        'post_id'     => (int)$comment->post_id,
                         'created_at'  => $comment->created_at
                     ]);
                 }

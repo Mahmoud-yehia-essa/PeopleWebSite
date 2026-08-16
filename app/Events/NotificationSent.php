@@ -27,10 +27,11 @@ class NotificationSent implements ShouldBroadcastNow
     {
         return [
             new PrivateChannel('chat.' . $this->userId),
+            new PrivateChannel('private-chat.' . $this->userId),
             new PrivateChannel('notifications.' . $this->userId),
+            new PrivateChannel('private-notifications.' . $this->userId),
         ];
     }
-
     public function broadcastAs(): string
     {
         return 'NotificationSent';
