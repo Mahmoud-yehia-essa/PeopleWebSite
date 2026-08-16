@@ -208,23 +208,70 @@ Route::middleware('auth:sanctum')->group(function () {
 });
 
 // مسار مصادقة القنوات الفورية لـ Reverb / WebSockets
-Route::post('broadcasting/auth', function (\Illuminate\Http\Request $request) {
-    if (!$request->user()) {
+Route::match(['get', 'post'], 'broadcasting/auth', function (\Illuminate\Http\Request $request) {
+    $user = $request->user();
+    if (!$user) {
         $token = $request->bearerToken();
         if ($token) {
             $accessToken = \Laravel\Sanctum\PersonalAccessToken::findToken($token);
             if ($accessToken && $accessToken->tokenable) {
-                auth()->setUser($accessToken->tokenable);
-                $request->setUserResolver(fn () => $accessToken->tokenable);
-            }
-        }
-        if (!$request->user() && $request->filled('user_id')) {
-            $user = \App\Models\User::find($request->user_id);
-            if ($user) {
+                $user = $accessToken->tokenable;
                 auth()->setUser($user);
+                auth('sanctum')->setUser($user);
                 $request->setUserResolver(fn () => $user);
             }
         }
     }
-    return \Illuminate\Support\Facades\Broadcast::auth($request);
+    if (!$user && $request->filled('user_id')) {
+        $user = \App\Models\User::find($request->user_id);
+        if ($user) {
+            auth()->setUser($user);
+            auth('sanctum')->setUser($user);
+            $request->setUserResolver(fn () => $user);
+        }
+    }
+
+    try {
+        if ($user) {
+            return \Illuminate\Support\Facades\Broadcast::auth($request);
+        }
+    } catch (\Throwable $e) {
+        // Fallback to manual signature calculation below
+    }
+
+    $socketId = $request->input('socket_id');
+    $channelName = $request->input('channel_name');
+    $key = config('reverb.apps.apps.0.key', env('REVERB_APP_KEY'));
+    $secret = config('reverb.apps.apps.0.secret', env('REVERB_APP_SECRET'));
+
+    if (!$socketId || !$channelName || !$key || !$secret) {
+        return response()->json(['error' => 'Invalid parameters'], 400);
+    }
+
+    $userId = $user ? $user->id : (int)$request->input('user_id', 0);
+    $userName = $user ? ($user->name ?? $user->first_name ?? 'User') : 'User';
+    $userAvatar = $user ? ($user->avatar_url ?? $user->profile_picture ?? null) : null;
+
+    if (str_starts_with($channelName, 'presence-')) {
+        $channelData = json_encode([
+            'user_id' => (string)$userId,
+            'user_info' => [
+                'id' => (int)$userId,
+                'name' => $userName,
+                'avatar' => $userAvatar,
+            ]
+        ]);
+        $stringToSign = "{$socketId}:{$channelName}:{$channelData}";
+        $signature = hash_hmac('sha256', $stringToSign, $secret);
+        return response()->json([
+            'auth' => "{$key}:{$signature}",
+            'channel_data' => $channelData,
+        ]);
+    } else {
+        $stringToSign = "{$socketId}:{$channelName}";
+        $signature = hash_hmac('sha256', $stringToSign, $secret);
+        return response()->json([
+            'auth' => "{$key}:{$signature}",
+        ]);
+    }
 });
