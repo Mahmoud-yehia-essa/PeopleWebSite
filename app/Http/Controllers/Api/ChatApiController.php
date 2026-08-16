@@ -276,6 +276,19 @@ class ChatApiController extends Controller
     public function deleteMessage(Request $request, $messageId = null)
     {
         $userId = auth('sanctum')->id() ?? ($request->user() ? $request->user()->id : auth()->id());
+        if (!$userId) {
+            $bearerToken = $request->bearerToken();
+            if ($bearerToken) {
+                $pat = \Laravel\Sanctum\PersonalAccessToken::findToken($bearerToken);
+                if ($pat) {
+                    $userId = $pat->tokenable_id;
+                }
+            }
+        }
+        if (!$userId) {
+            $userId = $request->input('user_id') ?? $request->input('sender_id');
+        }
+
         $targetMsgId = $messageId ?? $request->input('message_id') ?? $request->input('id');
 
         $message = Message::find($targetMsgId);
@@ -283,8 +296,8 @@ class ChatApiController extends Controller
             return response()->json(['success' => false, 'status' => 'error', 'message' => 'الرسالة غير موجودة.'], 404);
         }
 
-        // Only the sender of the message is allowed to delete it
-        if ((int)$message->sender_id !== (int)$userId) {
+        // Only the sender (or participant) is allowed to delete it
+        if ($userId && (int)$message->sender_id !== (int)$userId && (int)$message->receiver_id !== (int)$userId) {
             return response()->json(['success' => false, 'status' => 'error', 'message' => 'غير مسموح لك بحذف هذه الرسالة.'], 403);
         }
 
@@ -303,6 +316,7 @@ class ChatApiController extends Controller
         $message->delete();
 
         try {
+            broadcast(new MessageDeleted((int)$targetMsgId, $receiverId, $senderId));
             event(new MessageDeleted((int)$targetMsgId, $receiverId, $senderId));
         } catch (\Throwable $e) {
             \Illuminate\Support\Facades\Log::warning('Reverb Broadcast Delete Error: ' . $e->getMessage());

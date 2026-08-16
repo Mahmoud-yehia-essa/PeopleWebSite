@@ -1728,6 +1728,14 @@
                 }).error((err) => {
                     console.error('Failed to subscribe to whisper channel: chat.' + activeUserId, err);
                 });
+
+                activeConversationChannel.listen('.MessageDeleted', (e) => {
+                    const msgId = e.message_id || e.id;
+                    if (msgId) removeMessageFromUI(msgId);
+                }).listen('MessageDeleted', (e) => {
+                    const msgId = e.message_id || e.id;
+                    if (msgId) removeMessageFromUI(msgId);
+                });
             }
             
             // Reset status text in header based on online status
@@ -3143,6 +3151,14 @@
                         console.log('Successfully subscribed to whisper channel chat.' + activeUserId + ' on load');
                     }).error((e) => {
                         console.error('Subscription error to chat.' + activeUserId + ' on load', e);
+                    });
+
+                    activeConversationChannel.listen('.MessageDeleted', (e) => {
+                        const msgId = e.message_id || e.id;
+                        if (msgId) removeMessageFromUI(msgId);
+                    }).listen('MessageDeleted', (e) => {
+                        const msgId = e.message_id || e.id;
+                        if (msgId) removeMessageFromUI(msgId);
                     });
                 }
 
