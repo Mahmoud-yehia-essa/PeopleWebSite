@@ -18,7 +18,7 @@ class GroupChatController extends Controller
      */
     public function fetchGroups()
     {
-        $userId = Auth::id();
+        $userId = auth('sanctum')->id() ?? Auth::id();
 
         // Get groups where the user is the creator OR an active member
         $groups = Group::where(function ($query) use ($userId) {
@@ -88,6 +88,13 @@ class GroupChatController extends Controller
      */
     public function createGroup(Request $request)
     {
+        if (is_string($request->members)) {
+            $decoded = json_decode($request->members, true);
+            if (is_array($decoded)) {
+                $request->merge(['members' => $decoded]);
+            }
+        }
+
         $request->validate([
             'name' => 'required|string|max:255',
             'image' => 'nullable|image|max:2048',
@@ -95,7 +102,7 @@ class GroupChatController extends Controller
             'members.*' => 'exists:users,id'
         ]);
 
-        $creatorId = Auth::id();
+        $creatorId = auth('sanctum')->id() ?? Auth::id();
         $memberIds = array_map('intval', $request->members);
 
         // Ensure creator is not in members array to avoid duplicates
@@ -162,7 +169,7 @@ class GroupChatController extends Controller
      */
     public function fetchGroupMessages(Request $request, $groupId)
     {
-        $userId = Auth::id();
+        $userId = auth('sanctum')->id() ?? Auth::id();
 
         // Check if user is a member of the group
         $isMember = GroupMember::where('group_id', $groupId)
@@ -190,8 +197,14 @@ class GroupChatController extends Controller
         }
 
         $messages = $query->orderBy('id', 'desc')
-            ->limit(20)
+            ->limit(30)
             ->get()
+            ->map(function($msg) {
+                $msg->image_url = $msg->image_url;
+                $msg->video_url = $msg->video_url;
+                $msg->audio_url = $msg->audio_url;
+                return $msg;
+            })
             ->reverse()
             ->values();
 
@@ -213,7 +226,7 @@ class GroupChatController extends Controller
             'trim_end' => 'nullable|numeric|min:0',
         ]);
 
-        $userId = Auth::id();
+        $userId = auth('sanctum')->id() ?? Auth::id();
 
         // Verify membership
         $members = GroupMember::where('group_id', $groupId)
@@ -229,15 +242,24 @@ class GroupChatController extends Controller
         $imagePath = null;
         if ($request->hasFile('image')) {
             $file = $request->file('image');
-            $imageName = date('YmdHis') . '_group_msg.' . $file->getClientOriginalExtension();
+            $ext = strtolower($file->getClientOriginalExtension());
+            if (empty($ext) || $ext === 'tmp') {
+                $ext = 'jpg';
+            }
+            $imageName = date('YmdHis') . '_group_msg.' . $ext;
             $file->move(public_path('new_wiselook/uploads'), $imageName);
             $imagePath = $imageName;
+        } elseif ($request->filled('image')) {
+            $imagePath = basename($request->input('image'));
         }
 
         $videoPath = null;
         if ($request->hasFile('video')) {
             $file = $request->file('video');
             $originalExtension = strtolower($file->getClientOriginalExtension());
+            if (empty($originalExtension) || $originalExtension === 'tmp') {
+                $originalExtension = 'mp4';
+            }
             $tempInputPath = $file->getRealPath();
             $targetDirectory = public_path('new_wiselook/uploads');
 
@@ -271,14 +293,22 @@ class GroupChatController extends Controller
                 $file->move($targetDirectory, $videoName);
                 $videoPath = $videoName;
             }
+        } elseif ($request->filled('video')) {
+            $videoPath = basename($request->input('video'));
         }
 
         $audioPath = null;
         if ($request->hasFile('audio')) {
             $file = $request->file('audio');
-            $audioName = date('YmdHis') . '_group_audio.' . $file->getClientOriginalExtension();
+            $ext = strtolower($file->getClientOriginalExtension());
+            if (empty($ext) || $ext === 'tmp') {
+                $ext = 'aac';
+            }
+            $audioName = date('YmdHis') . '_group_audio.' . $ext;
             $file->move(public_path('new_wiselook/uploads'), $audioName);
             $audioPath = $audioName;
+        } elseif ($request->filled('audio')) {
+            $audioPath = basename($request->input('audio'));
         }
 
         // Create Group Message
@@ -296,9 +326,9 @@ class GroupChatController extends Controller
         // Load relationships
         $message->load(['sender', 'parent.sender']);
 
-        // Broadcast to other group members in real-time
+        // Broadcast to all group members in real-time
         try {
-            broadcast(new GroupMessageSent($message, $members))->toOthers();
+            event(new GroupMessageSent($message, $members));
         } catch (\Throwable $e) {
             \Illuminate\Support\Facades\Log::warning('Reverb Broadcast error in sendGroupMessage: ' . $e->getMessage());
         }
@@ -308,6 +338,37 @@ class GroupChatController extends Controller
         $message->video_url = $message->video ? asset('new_wiselook/uploads/' . basename($message->video)) : null;
         $message->audio_url = $message->audio ? asset('new_wiselook/uploads/' . basename($message->audio)) : null;
 
+        
+        // إرسال إشعار FCM سحابي لجميع أعضاء المجموعة المشتركين
+        try {
+            $group = Group::find($groupId);
+            $senderUser = User::find($userId);
+            $senderName = $senderUser ? trim($senderUser->first_name . ' ' . $senderUser->last_name) : 'عضو';
+
+            $bodyPreview = $request->message;
+            if (empty($bodyPreview)) {
+                if ($imagePath) $bodyPreview = '📷 أرسل صورة';
+                elseif ($videoPath) $bodyPreview = '🎥 أرسل فيديو';
+                elseif ($audioPath) $bodyPreview = '🎤 أرسل مقطعاً صوتياً';
+                else $bodyPreview = 'أرسل رسالة جديدة';
+            }
+
+            $otherMembers = array_values(array_diff($members, [$userId]));
+            if ($group && !empty($otherMembers)) {
+                app(\App\Services\FcmNotificationService::class)->sendGroupChatNotification(
+                    $otherMembers,
+                    $group->name,
+                    $senderName,
+                    $bodyPreview,
+                    (int)$group->id,
+                    $group->image,
+                    (int)$userId
+                );
+            }
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('FCM GroupChat send error: ' . $e->getMessage());
+        }
+
         return response()->json(['status' => 'success', 'message' => $message]);
     }
 
@@ -316,7 +377,7 @@ class GroupChatController extends Controller
      */
     public function getGroupDetails($groupId)
     {
-        $userId = Auth::id();
+        $userId = auth('sanctum')->id() ?? Auth::id();
         $group = Group::with(['members.user', 'members.role'])->find($groupId);
 
         if (!$group) {
@@ -349,7 +410,7 @@ class GroupChatController extends Controller
             'user_id' => 'required|exists:users,id'
         ]);
 
-        $userId = Auth::id();
+        $userId = auth('sanctum')->id() ?? Auth::id();
         $targetUserId = (int)$request->user_id;
 
         $group = Group::find($groupId);
@@ -382,7 +443,7 @@ class GroupChatController extends Controller
      */
     public function leaveGroup($groupId)
     {
-        $userId = Auth::id();
+        $userId = auth('sanctum')->id() ?? Auth::id();
         $group = Group::find($groupId);
         if (!$group) {
             return response()->json(['status' => 'error', 'message' => 'المجموعة غير موجودة.'], 404);
@@ -407,7 +468,7 @@ class GroupChatController extends Controller
      */
     public function deleteGroup($groupId)
     {
-        $userId = Auth::id();
+        $userId = auth('sanctum')->id() ?? Auth::id();
         $group = Group::find($groupId);
         if (!$group) {
             return response()->json(['status' => 'error', 'message' => 'المجموعة غير موجودة.'], 404);
@@ -423,5 +484,67 @@ class GroupChatController extends Controller
         $group->delete();
 
         return response()->json(['status' => 'success', 'message' => 'تم حذف المجموعة نهائياً.']);
+    }
+
+    /**
+     * Add new members to the group. (Only group creator/admin allowed)
+     */
+    public function addMembers(Request $request, $groupId)
+    {
+        if (is_string($request->members)) {
+            $decoded = json_decode($request->members, true);
+            if (is_array($decoded)) {
+                $request->merge(['members' => $decoded]);
+            }
+        }
+
+        $request->validate([
+            'members' => 'required|array|min:1',
+            'members.*' => 'exists:users,id'
+        ]);
+
+        $userId = auth('sanctum')->id() ?? Auth::id();
+        $group = Group::find($groupId);
+        if (!$group) {
+            return response()->json(['status' => 'error', 'message' => 'المجموعة غير موجودة.'], 404);
+        }
+
+        // Check if current user is creator/admin
+        if ((int)$group->created_by_user_id !== (int)$userId) {
+            return response()->json(['status' => 'error', 'message' => 'غير مسموح لك بإضافة أعضاء.'], 403);
+        }
+
+        $memberRole = GroupsRole::firstOrCreate(['name' => 'Member']);
+        $addedCount = 0;
+        $memberIds = array_map('intval', $request->members);
+
+        foreach ($memberIds as $mId) {
+            $existing = GroupMember::where('group_id', $groupId)->where('user_id', $mId)->first();
+            if ($existing) {
+                if ((int)$existing->is_active !== 1) {
+                    $existing->update(['is_active' => 1]);
+                    $addedCount++;
+                }
+            } else {
+                GroupMember::create([
+                    'group_id' => $groupId,
+                    'user_id' => $mId,
+                    'role_id' => $memberRole->id,
+                    'is_active' => 1,
+                    'joined_at' => now(),
+                ]);
+                $addedCount++;
+            }
+        }
+
+        if ($addedCount > 0) {
+            $group->increment('member_count', $addedCount);
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'تم إضافة الأعضاء بنجاح.',
+            'added_count' => $addedCount
+        ]);
     }
 }

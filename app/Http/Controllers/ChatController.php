@@ -137,8 +137,14 @@ class ChatController extends Controller
         }
 
         $messages = $query->orderBy('id', 'desc')
-            ->limit(20)
+            ->limit(30)
             ->get()
+            ->map(function($msg) {
+                $msg->image_url = $msg->image_url;
+                $msg->video_url = $msg->video_url;
+                $msg->audio_url = $msg->audio_url;
+                return $msg;
+            })
             ->reverse()
             ->values();
 
@@ -246,23 +252,63 @@ class ChatController extends Controller
     // حفظ الرسالة الجديدة وبثها عبر الويب سوكيت فوراً
     public function sendMessage(Request $request)
     {
-        $request->validate([
-            'receiver_id' => 'required|exists:users,id',
-            'message' => 'required_without_all:image,video,audio|nullable|string',
-            'image' => 'nullable|image|max:5120',
-            'video' => 'nullable|mimes:mp4,mov,avi,webm,ogg,qt,m4v|max:102400',
-            'audio' => 'nullable|file|max:10240',
-            'parent_id' => 'nullable|exists:messages,id',
-            'trim_start' => 'nullable|numeric|min:0',
-            'trim_end' => 'nullable|numeric|min:0',
-        ]);
+        $senderId = Auth::id() ?: ($request->user() ? $request->user()->id : null);
+        $receiverId = $request->input('receiver_id') 
+            ?? $request->input('user_id') 
+            ?? $request->input('recipient_id') 
+            ?? $request->input('to_id') 
+            ?? $request->input('person_id');
+
+        if (!$receiverId) {
+            
+        // إرسال إشعار FCM سحابي للمستقبل
+        try {
+            $senderUser = $request->user() ?: \App\Models\User::find($senderId);
+            $senderName = $senderUser ? trim($senderUser->first_name . ' ' . $senderUser->last_name) : 'مستخدم';
+            $senderPic = $senderUser ? $senderUser->profile_picture : null;
+            $senderToken = $senderUser ? $senderUser->token : null;
+
+            $bodyPreview = $messageText;
+            if (empty($bodyPreview)) {
+                if ($imagePath) $bodyPreview = '📷 أرسل صورة';
+                elseif ($videoPath) $bodyPreview = '🎥 أرسل فيديو';
+                elseif ($audioPath) $bodyPreview = '🎤 أرسل تسجيلاً صوتياً';
+                else $bodyPreview = 'أرسل رسالة جديدة';
+            }
+
+            app(\App\Services\FcmNotificationService::class)->sendChatNotification(
+                $receiverId,
+                $senderName,
+                $bodyPreview,
+                (int)$senderId,
+                $senderPic,
+                $senderToken
+            );
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('FCM Chat send error: ' . $e->getMessage());
+        }
+
+        return response()->json([
+                'status' => 'error',
+                'success' => false,
+                'message' => 'مُعرّف المستقبل (receiver_id) مطلوب.'
+            ], 422);
+        }
+
+        $messageText = $request->input('message') 
+            ?? $request->input('text') 
+            ?? $request->input('content') 
+            ?? $request->input('body') 
+            ?? '';
 
         $imagePath = null;
-        if ($request->hasFile('image')) {
-            $file = $request->file('image');
-            $imageName = date('YmdHis') . '_msg.' . $file->getClientOriginalExtension();
-            $file->move(public_path('new_wiselook/uploads'), $imageName);
-            $imagePath = $imageName;
+        if ($request->hasFile('image') || $request->hasFile('file') || $request->hasFile('media')) {
+            $file = $request->file('image') ?? $request->file('file') ?? $request->file('media');
+            if (str_starts_with($file->getMimeType(), 'image/')) {
+                $imageName = date('YmdHis') . '_msg.' . $file->getClientOriginalExtension();
+                $file->move(public_path('new_wiselook/uploads'), $imageName);
+                $imagePath = $imageName;
+            }
         }
 
         $videoPath = null;
@@ -317,48 +363,80 @@ class ChatController extends Controller
         }
 
         $message = Message::create([
-            'sender_id' => Auth::id(),
-            'receiver_id' => $request->receiver_id,
-            'message' => $request->message ?? '',
+            'sender_id' => $senderId,
+            'receiver_id' => $receiverId,
+            'message' => $messageText,
             'image' => $imagePath,
             'video' => $videoPath,
             'audio' => $audioPath,
-            'parent_id' => $request->parent_id,
+            'parent_id' => $request->input('parent_id') ?? $request->input('reply_to_id'),
         ]);
 
-        // بث الحدث للمستقبل عبر الويب سوكيت
-        // استخدام toOthers() يمنع تكرار الرسالة لدى الشخص المرسل نفسه عبر السوكيت لأنه أضافها بالفعل بيده في واجهته
+        $tempId = $request->input('temp_id') 
+            ?? $request->input('client_id') 
+            ?? $request->input('uuid') 
+            ?? $request->input('local_id') 
+            ?? $request->input('temporary_id') 
+            ?? $request->input('request_id');
+
+        $message->temp_id = $tempId;
+        $message->client_id = $tempId;
+        $message->uuid = $tempId;
+        $message->local_id = $tempId;
+
+        // بث الحدث فورياً لكلا الطرفين
         try {
-            broadcast(new MessageSent($message->load(['sender', 'parent.sender'])))->toOthers();
+            if ($request->hasHeader('X-Socket-ID') || $request->has('socket_id')) {
+                broadcast(new MessageSent($message))->toOthers();
+            } else {
+                event(new MessageSent($message));
+            }
         } catch (\Throwable $e) {
             \Illuminate\Support\Facades\Log::warning('Reverb Broadcast error in sendMessage: ' . $e->getMessage());
         }
 
-        // تحميل علاقة المرسل وتوفير روابط الملفات الكاملة للاستجابة
-        $message->load(['sender', 'parent.sender']);
-        $message->image_url = $message->image ? asset('new_wiselook/uploads/' . basename($message->image)) : null;
-        $message->video_url = $message->video ? asset('new_wiselook/uploads/' . basename($message->video)) : null;
-        $message->audio_url = $message->audio ? asset('new_wiselook/uploads/' . basename($message->audio)) : null;
+        // توفير روابط الملفات الكاملة للاستجابة
+        $message->image_url = $message->image ? (str_starts_with($message->image, 'http') ? $message->image : asset('new_wiselook/uploads/' . basename($message->image))) : null;
+        $message->video_url = $message->video ? (str_starts_with($message->video, 'http') ? $message->video : asset('new_wiselook/uploads/' . basename($message->video))) : null;
+        $message->audio_url = $message->audio ? (str_starts_with($message->audio, 'http') ? $message->audio : asset('new_wiselook/uploads/' . basename($message->audio))) : null;
 
-        return response()->json(['status' => 'success', 'message' => $message]);
+        $primaryUrl = $message->image_url ?? $message->video_url ?? $message->audio_url;
+
+        return response()->json([
+            'status' => 'success',
+            'success' => true,
+            'is_sent' => true,
+            'temp_id' => $tempId,
+            'client_id' => $tempId,
+            'uuid' => $tempId,
+            'local_id' => $tempId,
+            'uri' => $primaryUrl,
+            'url' => $primaryUrl,
+            'file' => $primaryUrl,
+            'path' => $primaryUrl,
+            'media' => $primaryUrl,
+            'message' => $message,
+            'data' => $message
+        ]);
     }
 
     // حذف رسالة (من قِبَل المرسل فقط)
     public function deleteMessage(Request $request, $messageId)
     {
-        $userId = Auth::id();
+        $userId = auth('sanctum')->id() ?? Auth::id();
         $message = Message::find($messageId);
 
         if (!$message) {
             return response()->json(['status' => 'error', 'message' => 'الرسالة غير موجودة.'], 404);
         }
 
-        // Only the sender can delete their own message
+        // Only the sender of the message is allowed to delete it
         if ((int) $message->sender_id !== (int) $userId) {
             return response()->json(['status' => 'error', 'message' => 'غير مسموح لك بحذف هذه الرسالة.'], 403);
         }
 
         $receiverId = (int) $message->receiver_id;
+        $senderId   = (int) $message->sender_id;
 
         // Delete attached media files from disk
         foreach (['image', 'video', 'audio'] as $field) {
@@ -372,14 +450,14 @@ class ChatController extends Controller
 
         $message->delete();
 
-        // Broadcast deletion to receiver in real time safely
+        // Broadcast deletion to both receiver and sender in real time safely
         try {
-            broadcast(new MessageDeleted((int) $messageId, $receiverId))->toOthers();
+            event(new MessageDeleted((int) $messageId, $receiverId, $senderId));
         } catch (\Throwable $e) {
             \Illuminate\Support\Facades\Log::warning('Broadcast error in deleteMessage: ' . $e->getMessage());
         }
 
-        return response()->json(['status' => 'success']);
+        return response()->json(['status' => 'success', 'success' => true, 'message' => 'تم حذف الرسالة بنجاح']);
     }
 
     /**

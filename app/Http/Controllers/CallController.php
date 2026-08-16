@@ -21,12 +21,16 @@ class CallController extends Controller
      */
     public function initiateCall(Request $request)
     {
-        $request->validate([
-            'receiver_id' => 'required|exists:users,id',
-        ]);
+        $receiverId = (int) ($request->receiver_id ?? $request->receiverId ?? $request->input('receiver_id') ?? $request->input('receiverId'));
 
-        $callerId = Auth::id();
-        $receiverId = (int) $request->receiver_id;
+        if (!$receiverId || !\App\Models\User::where('id', $receiverId)->exists()) {
+            return response()->json(['status' => 'error', 'message' => 'receiver_id is invalid or missing'], 422);
+        }
+
+        $callerId = auth('sanctum')->id() ?? Auth::id();
+        if (!$callerId) {
+            return response()->json(['status' => 'error', 'message' => 'Unauthenticated'], 401);
+        }
 
         if ($callerId === $receiverId) {
             return response()->json(['status' => 'error', 'message' => 'لا يمكنك الاتصال بنفسك.'], 400);
@@ -102,17 +106,13 @@ class CallController extends Controller
      */
     public function acceptCall(Request $request)
     {
-        $request->validate([
-            'caller_id' => 'required|exists:users,id',
-            'channel_name' => 'required|string',
-        ]);
+        $callerId = (int) ($request->caller_id ?? $request->callerId ?? $request->input('caller_id') ?? $request->input('callerId'));
+        $channelName = $request->channel_name ?? $request->channelName ?? $request->input('channel_name');
+        $receiverId = auth('sanctum')->id() ?? Auth::id();
 
-        $callerId = (int) $request->caller_id;
-        $receiverId = Auth::id();
-        $channelName = $request->channel_name;
-
-        // Broadcast to the caller that the call is accepted
-        broadcast(new CallAccepted($callerId, $receiverId, $channelName))->toOthers();
+        if ($callerId && $channelName) {
+            broadcast(new CallAccepted($callerId, $receiverId, $channelName))->toOthers();
+        }
 
         return response()->json(['status' => 'success']);
     }
@@ -122,15 +122,12 @@ class CallController extends Controller
      */
     public function declineCall(Request $request)
     {
-        $request->validate([
-            'caller_id' => 'required|exists:users,id',
-        ]);
+        $callerId = (int) ($request->caller_id ?? $request->callerId ?? $request->input('caller_id') ?? $request->input('callerId'));
+        $receiverId = auth('sanctum')->id() ?? Auth::id();
 
-        $callerId = (int) $request->caller_id;
-        $receiverId = Auth::id();
-
-        // Broadcast to the caller that the call was declined
-        broadcast(new CallDeclined($callerId, $receiverId))->toOthers();
+        if ($callerId) {
+            broadcast(new CallDeclined($callerId, $receiverId))->toOthers();
+        }
 
         return response()->json(['status' => 'success']);
     }
@@ -140,16 +137,22 @@ class CallController extends Controller
      */
     public function endCall(Request $request)
     {
-        $request->validate([
-            'target_user_id' => 'required|exists:users,id',
-            'channel_name' => 'required|string',
-        ]);
+        $targetUserId = (int) ($request->target_user_id ?? $request->targetUserId ?? $request->input('target_user_id') ?? $request->input('targetUserId'));
+        $channelName = $request->channel_name ?? $request->channelName ?? $request->input('channel_name');
+        $currentUserId = auth('sanctum')->id() ?? Auth::id();
 
-        $targetUserId = (int) $request->target_user_id;
-        $channelName = $request->channel_name;
+        if (!$targetUserId && $channelName && str_starts_with($channelName, 'call_')) {
+            $parts = explode('_', $channelName);
+            if (count($parts) >= 3) {
+                $id1 = (int) $parts[1];
+                $id2 = (int) $parts[2];
+                $targetUserId = ($id1 === (int) $currentUserId) ? $id2 : $id1;
+            }
+        }
 
-        // Broadcast to the other user that the call has ended
-        broadcast(new CallEnded($targetUserId, $channelName))->toOthers();
+        if ($targetUserId && $channelName) {
+            broadcast(new CallEnded($targetUserId, $channelName))->toOthers();
+        }
 
         return response()->json(['status' => 'success']);
     }
@@ -288,6 +291,49 @@ class CallController extends Controller
             ]);
         } catch (\Exception $e) {
             return response()->json(['status' => 'error', 'message' => 'فشل الانضمام للمكالمة: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Generate Agora RTC token for voice/video calls.
+     */
+    public function generateToken(Request $request)
+    {
+        $channelName = $request->input('channelName') ?? $request->input('channel_name');
+        if (!$channelName) {
+            return response()->json(['success' => false, 'status' => 'error', 'message' => 'اسم القناة (channelName) مطلوب.'], 400);
+        }
+
+        $userId = (int) ($request->input('uid') ?? Auth::id() ?? 0);
+
+        $appId = env('AGORA_APP_ID');
+        $appCertificate = env('AGORA_APP_CERTIFICATE');
+
+        if (!$appId || !$appCertificate) {
+            return response()->json(['success' => false, 'status' => 'error', 'message' => 'لم يتم إعداد مفاتيح Agora بشكل صحيح في الخادم.'], 500);
+        }
+
+        try {
+            $expireTime = time() + 3600;
+            $client = new Agora($appId, $appCertificate);
+            $client->setExpiration($expireTime);
+
+            $agoraUser = (new AgoraUser($userId))
+                ->setChannel($channelName)
+                ->setRole(Roles::RTC_PUBLISHER)
+                ->setPrivilegeExpire($expireTime);
+
+            $token = RtcToken::buildTokenWithUid($client, $agoraUser);
+
+            return response()->json([
+                'success'      => true,
+                'status'       => 'success',
+                'token'        => $token,
+                'uid'          => $userId,
+                'agora_app_id' => $appId
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'status' => 'error', 'message' => 'فشل توليد الرمز: ' . $e->getMessage()], 500);
         }
     }
 }

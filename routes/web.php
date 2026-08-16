@@ -25,7 +25,7 @@ use App\Http\Controllers\GroupChatController;
 
 
 
-Route::middleware(['auth'])->group(function () {
+Route::middleware(['auth:web,sanctum'])->group(function () {
     Route::get('/messages/fetch/{receiverId}', [ChatController::class, 'fetchMessages']);
     Route::get('/messages/search/{receiverId}', [ChatController::class, 'searchMessages']);
     Route::get('/messages/contacts', [ChatController::class, 'fetchContacts']);
@@ -41,10 +41,15 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/messages/groups/{groupId}/messages', [GroupChatController::class, 'sendGroupMessage']);
     Route::get('/messages/groups/{groupId}/details', [GroupChatController::class, 'getGroupDetails']);
     Route::post('/messages/groups/{groupId}/members/remove', [GroupChatController::class, 'removeMember']);
+    Route::post('/messages/groups/{groupId}/members/add', [GroupChatController::class, 'addMembers']);
     Route::post('/messages/groups/{groupId}/leave', [GroupChatController::class, 'leaveGroup']);
     Route::delete('/messages/groups/{groupId}/delete', [GroupChatController::class, 'deleteGroup']);
 
     // مسارات إشارات الاتصال الفوري (Agora)
+    Route::get('/messages/call/token', [CallController::class, 'generateToken']);
+    Route::post('/messages/call/token', [CallController::class, 'generateToken']);
+    Route::get('/chat/call/generate_token.php', [CallController::class, 'generateToken']);
+    Route::post('/chat/call/generate_token.php', [CallController::class, 'generateToken']);
     Route::post('/messages/call/initiate', [CallController::class, 'initiateCall']);
     Route::post('/messages/call/group/initiate', [CallController::class, 'initiateGroupCall']);
     Route::post('/messages/call/group/join', [CallController::class, 'joinGroupCall']);

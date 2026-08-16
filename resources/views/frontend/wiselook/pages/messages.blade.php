@@ -717,8 +717,12 @@
         });
 
         const authUserId = {{ auth()->id() }};
+        const authUserName = {!! json_encode(auth()->user() ? (auth()->user()->name ?? trim((auth()->user()->first_name ?? '') . ' ' . (auth()->user()->last_name ?? ''))) : 'User') !!};
         let activeUserId = {{ $activeUser ? $activeUser->id : 'null' }};
         let activeGroupId = null;
+        let activeGroupMembersCount = 0;
+        const groupTypingMembers = new Map();
+        const groupTypingTimeouts = new Map();
         let activeReplyParentId = null;
         let oldestMessageId = null;
         let hasMoreMessages = true;
@@ -1361,6 +1365,11 @@
             const wrapper = $('#messages-list-wrapper');
             if (wrapper.length === 0) return;
             
+            // Deduplicate: avoid appending if message with this ID is already in DOM
+            if (msg && msg.id && wrapper.find(`.message-item[data-id="${msg.id}"]`).length > 0) {
+                return;
+            }
+            
             // Remove "no messages" placeholder if it exists
             wrapper.find('.no-messages-placeholder').remove();
             
@@ -1623,15 +1632,89 @@
             });
         }
 
+        function updateGroupTypingUI() {
+            if (!activeGroupId) return;
+            const headerDot = $('#active-user-status-dot');
+            const headerText = $('#active-user-status-text');
+            
+            if (groupTypingMembers.size > 0) {
+                const names = Array.from(groupTypingMembers.values());
+                let typingLabel = '';
+                if (names.length === 1) {
+                    typingLabel = names[0] + ' ' + _tp.typingIndicator;
+                } else if (names.length === 2) {
+                    typingLabel = names.join(' و ') + ' ' + _tp.typingIndicator;
+                } else {
+                    typingLabel = names[0] + ' وآخرون ' + _tp.typingIndicator;
+                }
+                headerDot.removeClass('hidden bg-secondary bg-green-500 bg-slate-400').addClass('bg-primary animate-pulse');
+                headerText.text(typingLabel);
+            } else {
+                headerDot.addClass('hidden');
+                headerText.text(activeGroupMembersCount + ' ' + _tp.membersCountLabel);
+            }
+        }
+
+        function handleGroupTypingWhisper(e) {
+            if (!activeGroupId || parseInt(e.group_id) !== parseInt(activeGroupId)) return;
+            const senderId = parseInt(e.sender_id || e.user_id);
+            if (!senderId || senderId === parseInt(authUserId)) return;
+            const senderName = e.user_name || e.sender_name || 'عضو';
+            const isTyping = e.typing === true || e.is_typing === true;
+
+            if (isTyping) {
+                groupTypingMembers.set(senderId, senderName);
+                if (groupTypingTimeouts.has(senderId)) {
+                    clearTimeout(groupTypingTimeouts.get(senderId));
+                }
+                const timeoutId = setTimeout(() => {
+                    groupTypingMembers.delete(senderId);
+                    groupTypingTimeouts.delete(senderId);
+                    updateGroupTypingUI();
+                }, 4000);
+                groupTypingTimeouts.set(senderId, timeoutId);
+            } else {
+                groupTypingMembers.delete(senderId);
+                if (groupTypingTimeouts.has(senderId)) {
+                    clearTimeout(groupTypingTimeouts.get(senderId));
+                    groupTypingTimeouts.delete(senderId);
+                }
+            }
+            updateGroupTypingUI();
+        }
+
+        function subscribeToGroupChannel(groupId) {
+            if (!window.Echo) return;
+            groupId = parseInt(groupId);
+            activeConversationChannel = window.Echo.private(`chat.group.${groupId}`);
+            activeConversationChannel.subscribed(() => {
+                console.log('Successfully subscribed to group channel: chat.group.' + groupId);
+            }).error((err) => {
+                console.error('Failed to subscribe to group channel: chat.group.' + groupId, err);
+            });
+
+            activeConversationChannel.listenForWhisper('typing', handleGroupTypingWhisper);
+        }
+
         // Select a conversation from sidebar or search
         function selectConversation(userId, userName, userAvatar) {
             // Unsubscribe from previous conversation channel
             if (activeUserId && window.Echo) {
                 window.Echo.leave('chat.' + activeUserId);
             }
+            if (activeGroupId && window.Echo) {
+                window.Echo.leave('chat.group.' + activeGroupId);
+                window.Echo.leave('group.' + activeGroupId);
+            }
+
+            // Clear group typing state
+            groupTypingTimeouts.forEach(t => clearTimeout(t));
+            groupTypingTimeouts.clear();
+            groupTypingMembers.clear();
 
             activeUserId = parseInt(userId);
             activeGroupId = null; // Reset group ID since we are in DM
+            activeGroupMembersCount = 0;
             
             // Switch view panels
             $('#chat-empty-state').addClass('hidden');
@@ -1697,9 +1780,19 @@
             if (activeUserId && window.Echo) {
                 window.Echo.leave('chat.' + activeUserId);
             }
+            if (activeGroupId && window.Echo) {
+                window.Echo.leave('chat.group.' + activeGroupId);
+                window.Echo.leave('group.' + activeGroupId);
+            }
+
+            // Clear group typing state
+            groupTypingTimeouts.forEach(t => clearTimeout(t));
+            groupTypingTimeouts.clear();
+            groupTypingMembers.clear();
+
             activeUserId = null;
             activeGroupId = parseInt(groupId);
-            activeConversationChannel = null;
+            activeGroupMembersCount = parseInt(membersCount) || 0;
             
             // Switch view panels
             $('#chat-empty-state').addClass('hidden');
@@ -1711,6 +1804,9 @@
             $('#active-user-status-text').text(membersCount + ' ' + _tp.membersCountLabel);
             $('#active-user-status-dot').addClass('hidden');
             
+            // Subscribe to group whisper channel
+            subscribeToGroupChannel(activeGroupId);
+
             // Show live call button and group info button in group chats
             $('#call-btn').removeClass('hidden').attr('title', _tp.groupAudioCall);
             $('#group-info-btn').removeClass('hidden');
@@ -2649,7 +2745,21 @@
                     }
                     if (activeUserId && activeConversationChannel) {
                         activeConversationChannel.whisper('typing', {
+                            chat_type: 'direct',
                             sender_id: authUserId,
+                            user_id: authUserId,
+                            user_name: authUserName,
+                            recipient_id: activeUserId,
+                            typing: false
+                        });
+                    } else if (activeGroupId && activeConversationChannel) {
+                        activeConversationChannel.whisper('typing', {
+                            chat_type: 'group',
+                            group_id: activeGroupId,
+                            sender_id: authUserId,
+                            user_id: authUserId,
+                            user_name: authUserName,
+                            sender_name: authUserName,
                             typing: false
                         });
                     }
@@ -3050,6 +3160,9 @@
                     
                     // 1. If message belongs to current active conversation
                     if (parseInt(e.sender_id) === parseInt(activeUserId)) {
+                        if (e.id && $(`.message-item[data-id="${e.id}"]`).length > 0) {
+                            return;
+                        }
                         appendMessage({
                             id: e.id,
                             message: e.message,
@@ -3116,15 +3229,17 @@
                 })
                 .listenForWhisper('typing', (e) => {
                     console.log('Received typing whisper:', e);
-                    if (parseInt(e.sender_id) === parseInt(activeUserId)) {
+                    if (e.chat_type === 'group' || e.group_id) return;
+                    if (!activeGroupId && activeUserId && parseInt(e.sender_id) === parseInt(activeUserId)) {
                         if (e.typing) {
                             // Show typing indicator in header status
-                            $('#active-user-status-dot').removeClass('bg-secondary').addClass('bg-primary animate-pulse');
+                            $('#active-user-status-dot').removeClass('bg-secondary bg-slate-400 bg-green-500').addClass('bg-primary animate-pulse');
                             $('#active-user-status-text').text(_tp.typingIndicator);
                         } else {
                             // Hide typing indicator in header status
-                            $('#active-user-status-dot').removeClass('bg-primary animate-pulse').addClass('bg-secondary');
-                            $('#active-user-status-text').text(_tp.onlineNow);
+                            const isOnline = onlineUsers.has(activeUserId);
+                            $('#active-user-status-dot').removeClass('bg-primary animate-pulse bg-slate-400 bg-green-500').addClass(isOnline ? 'bg-green-500' : 'bg-slate-400');
+                            $('#active-user-status-text').text(isOnline ? _tp.onlineNow : _tp.offlineNow);
                         }
                     }
                 });
@@ -3150,6 +3265,13 @@
                     
                     // 1. If message belongs to current active group conversation
                     if (activeGroupId && parseInt(e.group_id) === parseInt(activeGroupId)) {
+                        // Deduplicate: avoid appending if message was already added via AJAX callback
+                        if (e.id && $(`.message-item[data-id="${e.id}"]`).length > 0) {
+                            return;
+                        }
+
+                        const isSelf = parseInt(e.sender_id) === parseInt(authUserId);
+
                         appendMessage({
                             id: e.id,
                             message: e.message,
@@ -3162,12 +3284,12 @@
                             sender_avatar: e.sender_avatar,
                             group_id: e.group_id,
                             created_at: e.created_at
-                        }, false);
+                        }, isSelf);
                         
                         scrollToBottom();
                         
                         // Update last message in sidebar (and move to top)
-                        updateGroupSidebarLastMessage(e.group_id, previewText, e.created_at, e.sender_name);
+                        updateGroupSidebarLastMessage(e.group_id, previewText, e.created_at, isSelf ? _tp.youLabel : e.sender_name);
                     } else {
                         // 2. Message belongs to another group conversation
                         // Update last message in sidebar and increment/show unread badge
@@ -3714,9 +3836,12 @@
             $('#message-textarea').on('input', function() {
                 if (activeUserId && activeConversationChannel) {
                     if (!typingTimeout) {
-                        console.log('Whispering typing:true to chat.' + activeUserId);
                         activeConversationChannel.whisper('typing', {
+                            chat_type: 'direct',
                             sender_id: authUserId,
+                            user_id: authUserId,
+                            user_name: authUserName,
+                            recipient_id: activeUserId,
                             typing: true
                         });
                     }
@@ -3725,14 +3850,46 @@
                     
                     typingTimeout = setTimeout(function() {
                         if (activeUserId && activeConversationChannel) {
-                            console.log('Whispering typing:false to chat.' + activeUserId);
                             activeConversationChannel.whisper('typing', {
+                                chat_type: 'direct',
                                 sender_id: authUserId,
+                                user_id: authUserId,
+                                user_name: authUserName,
+                                recipient_id: activeUserId,
                                 typing: false
                             });
                         }
                         typingTimeout = null;
-                    }, 2000);
+                    }, 2500);
+                } else if (activeGroupId && activeConversationChannel) {
+                    if (!typingTimeout) {
+                        activeConversationChannel.whisper('typing', {
+                            chat_type: 'group',
+                            group_id: activeGroupId,
+                            sender_id: authUserId,
+                            user_id: authUserId,
+                            user_name: authUserName,
+                            sender_name: authUserName,
+                            typing: true
+                        });
+                    }
+                    
+                    clearTimeout(typingTimeout);
+                    
+                    typingTimeout = setTimeout(function() {
+                        if (activeGroupId && activeConversationChannel) {
+                            activeConversationChannel.whisper('typing', {
+                                chat_type: 'group',
+                                group_id: activeGroupId,
+                                sender_id: authUserId,
+                                user_id: authUserId,
+                                user_name: authUserName,
+                                sender_name: authUserName,
+                                typing: false
+                            });
+                        }
+                        typingTimeout = null;
+                    }, 2500);
                 }
             });
         } else {

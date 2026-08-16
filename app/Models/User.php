@@ -39,7 +39,8 @@ use App\Models\Message;
     'provider',
     'points',
     'google_id',
-    'facebook_id'
+    'facebook_id',
+    'apple_id'
 ])]
 #[Hidden([
     'password', 

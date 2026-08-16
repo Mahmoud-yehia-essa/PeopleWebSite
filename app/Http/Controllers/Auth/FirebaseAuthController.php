@@ -241,9 +241,12 @@ class FirebaseAuthController extends Controller
         ]);
 
         try {
-            $response = \Illuminate\Support\Facades\Http::get('http://api.textmebot.com/send.php', [
+            $apiUrl = config('services.textmebot.url', 'http://api.textmebot.com/send.php');
+            $apiKey = config('services.textmebot.api_key', 'zh9d51Rp9csh');
+
+            $response = \Illuminate\Support\Facades\Http::get($apiUrl, [
                 'recipient' => $phone,
-                'apikey'    => 'zh9d51Rp9csh',
+                'apikey'    => $apiKey,
                 'text'      => 'رمز التحقق الخاص بك في حكماء العالم هو : ' . $otp,
             ]);
 

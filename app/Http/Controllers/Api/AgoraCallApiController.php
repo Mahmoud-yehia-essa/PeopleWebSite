@@ -4,49 +4,55 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Auth;
+use Peterujah\Agora\Agora;
+use Peterujah\Agora\User as AgoraUser;
+use Peterujah\Agora\Roles;
+use Peterujah\Agora\Builders\RtcToken;
 
 class AgoraCallApiController extends Controller
 {
     /**
-     * 7.1 توليد الـ Agora RTC Token للمكالمات (GET Request)
+     * Generate standard Agora RTC Token for calls.
      */
     public function generateToken(Request $request)
     {
-        $validator = Validator::make($request->all(), [
-            'channelName' => 'required|string'
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json(['success' => false, 'message' => $validator->errors()->first()], 422);
+        $channelName = $request->input('channelName') ?? $request->input('channel_name');
+        if (!$channelName) {
+            return response()->json(['success' => false, 'status' => 'error', 'message' => 'channelName is required'], 400);
         }
 
-        // مفاتيح منصة Agora (يمكنك وضعها بملف الـ .env لاحقاً لحفظ الأمان)
-        $appId = env('AGORA_APP_ID', 'YOUR_AGORA_APP_ID_HERE');
-        $appCertificate = env('AGORA_APP_CERTIFICATE', 'YOUR_AGORA_APP_CERTIFICATE_HERE');
-        
-        $channelName = $request->query('channelName');
-        $uid = $request->query('uid', 0);
-        
-        // حساب أوقات انتهاء صلاحية الرمز (ساعة واحدة افتراضياً للاتصال الآمن)
-        $expireTimeInSeconds = 3600;
-        $currentTimestamp = time();
-        $privilegeExpiredTs = $currentTimestamp + $expireTimeInSeconds;
+        $userId = (int) ($request->input('uid') ?? Auth::id() ?? 0);
 
-        // بناء ومحاكاة هيكلية التشفير الرياضي لـ Agora RTC Token القياسي
-        $authToken = '';
-        if ($appId !== 'YOUR_AGORA_APP_ID_HERE') {
-            $msgToBeSigned = $appId . $channelName . $uid . $privilegeExpiredTs;
-            $signature = hash_hmac('sha256', $msgToBeSigned, $appCertificate);
-            $authToken = "006" . $appId . "IAC" . base64_encode($signature . "_" . $privilegeExpiredTs);
-        } else {
-            // توكين افتراضي آمن لغايات الفحص البرمجي بـ Postman في بيئة الـ Local
-            $authToken = "sample_agora_token_for_channel_" . $channelName . "_" . rand(1000, 9999);
+        $appId = env('AGORA_APP_ID');
+        $appCertificate = env('AGORA_APP_CERTIFICATE');
+
+        if (!$appId || !$appCertificate) {
+            return response()->json(['success' => false, 'status' => 'error', 'message' => 'Agora keys not configured on server'], 500);
         }
 
-        return response()->json([
-            'success' => true,
-            'token'   => $authToken
-        ]);
+        try {
+            $expireTime = time() + 3600;
+
+            $client = new Agora($appId, $appCertificate);
+            $client->setExpiration($expireTime);
+
+            $agoraUser = (new AgoraUser($userId))
+                ->setChannel($channelName)
+                ->setRole(Roles::RTC_PUBLISHER)
+                ->setPrivilegeExpire($expireTime);
+
+            $token = RtcToken::buildTokenWithUid($client, $agoraUser);
+
+            return response()->json([
+                'success'      => true,
+                'status'       => 'success',
+                'token'        => $token,
+                'uid'          => $userId,
+                'agora_app_id' => $appId
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'status' => 'error', 'message' => 'Failed to generate token: ' . $e->getMessage()], 500);
+        }
     }
 }

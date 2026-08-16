@@ -325,4 +325,155 @@ class AffiliateController extends Controller
             'alert-type' => 'success'
         ]);
     }
+
+    /**
+     * API: جلب بيانات سفير الحكمة لتطبيق الهاتف
+     */
+    public function getAmbassadorData(Request $request)
+    {
+        $userId = $request->input('user_id') ?? $request->input('id');
+        if (!$userId) {
+            $user = $request->user() ?? auth('sanctum')->user();
+            $userId = $user ? $user->id : null;
+        }
+
+        if (!$userId) {
+            return response()->json(['success' => false, 'message' => 'User ID is required'], 400);
+        }
+
+        $user = User::find($userId);
+        if (!$user) {
+            return response()->json(['success' => false, 'message' => 'User not found'], 404);
+        }
+
+        // جلب أو إنشاء رابط الإحالة تلقائياً
+        $link = AffiliateLink::where('user_id', $user->id)->first();
+        if (!$link) {
+            $code = AffiliateLink::generateUniqueCode($user);
+            $link = AffiliateLink::create([
+                'user_id' => $user->id,
+                'code' => $code,
+                'clicks' => 0,
+                'is_active' => true
+            ]);
+        }
+
+        // الإحصائيات
+        $clicksCount = (int)($link->clicks ?: 0);
+        $referralsCount = (int)AffiliateTracking::where('affiliate_link_id', $link->id)->count();
+        $rewardPoints = $referralsCount * 50;
+
+        // رتبة السفير
+        if ($referralsCount >= 20) {
+            $rank = 'سفير ذهبي';
+        } elseif ($referralsCount >= 5) {
+            $rank = 'سفير فضي';
+        } else {
+            $rank = 'سفير برونزي';
+        }
+
+        $rankPhoto = null;
+        if ($user->rank && !empty($user->rank->photo)) {
+            $rankPhoto = asset('upload/rankings/' . $user->rank->photo);
+        }
+
+        // الأعضاء المنضمون مؤخراً عبر رابط المستخدم
+        $recentTrackings = AffiliateTracking::where('affiliate_link_id', $link->id)
+            ->with('registeredUser')
+            ->latest()
+            ->limit(15)
+            ->get();
+
+        $recentReferrals = $recentTrackings->map(function ($tracking) {
+            $rUser = $tracking->registeredUser;
+            if (!$rUser) return null;
+            
+            $rPhoto = null;
+            if (!empty($rUser->profile_picture) && $rUser->profile_picture != 'non') {
+                $rPhoto = filter_var($rUser->profile_picture, FILTER_VALIDATE_URL)
+                    ? $rUser->profile_picture
+                    : asset('new_wiselook/uploads/' . $rUser->profile_picture);
+            } else {
+                $rPhoto = asset('upload/no_image.jpg');
+            }
+
+            return [
+                'id' => (int)$rUser->id,
+                'name' => trim($rUser->first_name . ' ' . $rUser->last_name),
+                'profile_picture' => $rPhoto,
+                'created_at' => $tracking->created_at ? $tracking->created_at->format('Y-m-d H:i') : '',
+                'diff' => $tracking->created_at ? $tracking->created_at->diffForHumans() : ''
+            ];
+        })->filter()->values();
+
+        $referralUrl = url('/ref/' . $link->code);
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'code' => $link->code,
+                'referral_url' => $referralUrl,
+                'clicks' => $clicksCount,
+                'referrals_count' => $referralsCount,
+                'reward_points' => $rewardPoints,
+                'rank' => $rank,
+                'rank_photo' => $rankPhoto,
+                'recent_referrals' => $recentReferrals
+            ]
+        ]);
+    }
+
+    /**
+     * API: تحديث كود الإحالة المخصص من تطبيق الهاتف
+     */
+    public function updateReferralCodeApi(Request $request)
+    {
+        $userId = $request->input('user_id');
+        if (!$userId) {
+            $user = $request->user() ?? auth('sanctum')->user();
+            $userId = $user ? $user->id : null;
+        }
+
+        if (!$userId) {
+            return response()->json(['success' => false, 'message' => 'User ID is required'], 400);
+        }
+
+        $validator = \Illuminate\Support\Facades\Validator::make($request->all(), [
+            'code' => 'required|string|max:100',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['success' => false, 'message' => $validator->errors()->first()], 422);
+        }
+
+        $link = AffiliateLink::where('user_id', $userId)->first();
+        if (!$link) {
+            return response()->json(['success' => false, 'message' => 'Affiliate link not found'], 404);
+        }
+
+        $code = strtolower(trim($request->code));
+        $code = preg_replace('/[^a-z0-9-_]/', '', $code);
+
+        if (empty($code)) {
+            return response()->json(['success' => false, 'message' => 'الكود المخصص غير صالح بعد تنظيفه من الرموز الخاصة.'], 400);
+        }
+
+        $exists = AffiliateLink::where('code', $code)->where('id', '!=', $link->id)->exists();
+        if ($exists) {
+            return response()->json(['success' => false, 'message' => 'كود الإحالة هذا مستخدم بالفعل، يرجى اختيار كود آخر.'], 400);
+        }
+
+        $link->code = $code;
+        $link->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'تم تحديث كود الإحالة المخصص بنجاح.',
+            'data' => [
+                'code' => $link->code,
+                'referral_url' => url('/ref/' . $link->code),
+            ]
+        ]);
+    }
 }
+

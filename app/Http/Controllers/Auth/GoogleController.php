@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Laravel\Socialite\Facades\Socialite;
@@ -15,8 +16,12 @@ class GoogleController extends Controller
     /**
      * إعادة توجيه المستخدم إلى صفحة مصادقة Google.
      */
-    public function redirectToGoogle()
+    public function redirectToGoogle(Request $request)
     {
+        if ($request->has('app') || $request->has('mobile')) {
+            session(['google_auth_source' => 'app']);
+        }
+
         return Socialite::driver('google')
             ->redirectUrl(url('/auth/google/callback'))
             ->redirect();
@@ -25,8 +30,11 @@ class GoogleController extends Controller
     /**
      * استقبال استجابة Google وتسجيل دخول المستخدم أو إنشائه.
      */
-    public function handleGoogleCallback()
+    public function handleGoogleCallback(Request $request)
     {
+        $isApp = session('google_auth_source') === 'app' || $request->has('app') || $request->has('mobile');
+        session()->forget('google_auth_source');
+
         try {
             try {
                 $googleUser = Socialite::driver('google')
@@ -40,6 +48,12 @@ class GoogleController extends Controller
             }
 
             if (!$googleUser || !$googleUser->getEmail()) {
+                if ($isApp) {
+                    return redirect()->route('auth.google.app_callback', [
+                        'status' => 'error',
+                        'message' => 'لم نتمكن من الحصول على بيانات حساب جوجل الخاص بك.'
+                    ]);
+                }
                 return redirect()->route('user.login')->with([
                     'message' => 'لم نتمكن من الحصول على بيانات حساب جوجل الخاص بك.',
                     'alert-type' => 'error'
@@ -101,6 +115,26 @@ class GoogleController extends Controller
                 session()->forget('affiliate_ref');
             }
 
+            if ($isApp) {
+                $token = $user->createToken('WiselookMobileToken')->plainTextToken;
+                
+                $userData = [
+                    'id' => $user->id,
+                    'first_name' => $user->first_name,
+                    'last_name' => $user->last_name,
+                    'email' => $user->email,
+                    'username' => $user->username ?? $user->email,
+                    'profile_picture' => $user->profile_picture,
+                    'status' => $user->status,
+                ];
+
+                return redirect()->route('auth.google.app_callback', [
+                    'status' => 'success',
+                    'token' => $token,
+                    'user' => json_encode($userData)
+                ]);
+            }
+
             $targetRoute = ($user->role === 'admin' || $user->role === 'owner') 
                 ? route('dashboard') 
                 : route('frontend.home');
@@ -113,10 +147,29 @@ class GoogleController extends Controller
             return redirect()->intended($targetRoute)->with($notification);
 
         } catch (Exception $e) {
+            if ($isApp) {
+                return redirect()->route('auth.google.app_callback', [
+                    'status' => 'error',
+                    'message' => $e->getMessage()
+                ]);
+            }
             return redirect()->route('user.login')->with([
                 'message' => 'حدث خطأ أثناء تسجيل الدخول باستخدام جوجل: ' . $e->getMessage(),
                 'alert-type' => 'error'
             ]);
         }
+    }
+
+    /**
+     * صفحة إتمام المصادقة لتطبيق الهاتف (App Callback).
+     */
+    public function appCallback(Request $request)
+    {
+        return response()->view('auth.google_app_callback', [
+            'status' => $request->get('status', 'success'),
+            'token' => $request->get('token', ''),
+            'user' => $request->get('user', '{}'),
+            'message' => $request->get('message', '')
+        ]);
     }
 }

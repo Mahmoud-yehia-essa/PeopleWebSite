@@ -18,12 +18,44 @@ class BrevoMailService
         $fromEmail = env('MAIL_FROM_ADDRESS', 'no-reply@worldwisepeople.net');
         $fromName = env('MAIL_FROM_NAME', 'مجلس الحكماء - Wiselook');
 
-        // تجهيز محتوى البريد الإلكتروني بحسب التنسيق الاحترافي
+        // استبدال أي رابط محلي localhost برابط النطاق الرسمي الموثق لتجنب فلاتر السبام في Gmail
+        if (str_contains($resetUrl, 'localhost') || str_contains($resetUrl, '127.0.0.1')) {
+            $resetUrl = 'https://worldwisepeople.net/reset-password?email=' . urlencode($user->email) . '&token=' . $code;
+        }
+
+        $userName = trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? ''));
+        if (empty($userName)) {
+            $userName = 'المستخدم';
+        }
+
+        // 1. تجهيز محتوى HTML المحسن
         $htmlContent = view('emails.reset_code', [
             'user' => $user,
             'code' => $code,
             'resetUrl' => $resetUrl
         ])->render();
+
+        // 2. تجهيز محتوى نصي عادي (Plain Text) لضمان اجتياز فلاتر البريد (Multipart Standard)
+        $textContent = "مرحباً {$userName}،
+
+"
+            . "لقد تلقينا طلباً لإعادة تعيين كلمة المرور الخاصة بحسابك في منصة مجلس الحكماء (Wiselook).
+
+"
+            . "رمز التحقق الخاص بك هو: {$code}
+
+"
+            . "أو يمكنك إعادة تعيين كلمة المرور عبر الرابط التالي:
+{$resetUrl}
+
+"
+            . "تنبيه أمني: هذا الرمز صالح للاستخدام لمرة واحدة فقط. إذا لم تكن أنت من طلب ذلك، يرجى تجاهل هذه الرسالة.
+
+"
+            . "مجلس الحكماء - Wiselook
+https://worldwisepeople.net";
+
+        $subject = 'كود التحقق لإعادة تعيين كلمة المرور - مجلس الحكماء';
 
         if (!empty($apiKey)) {
             Log::info("Sending email via Brevo REST API to: {$user->email}");
@@ -41,11 +73,17 @@ class BrevoMailService
                     'to'          => [
                         [
                             'email' => $user->email,
-                            'name'  => $user->first_name ? ($user->first_name . ' ' . $user->last_name) : 'المستخدم'
+                            'name'  => $userName
                         ]
                     ],
-                    'subject'     => 'رمز إستعادة كلمة المرور | مجلس الحكماء - Wiselook',
-                    'htmlContent' => $htmlContent
+                    'replyTo'     => [
+                        'email' => 'contact.worldwisepeople@gmail.com',
+                        'name'  => 'مجلس الحكماء الدعم الفني'
+                    ],
+                    'subject'     => $subject,
+                    'htmlContent' => $htmlContent,
+                    'textContent' => $textContent,
+                    'tags'        => ['password-reset', 'transactional']
                 ]);
 
                 if ($response->successful()) {
@@ -54,7 +92,7 @@ class BrevoMailService
                 } else {
                     Log::error("Brevo REST API Email failed with status {$response->status()}: " . $response->body());
                 }
-            } catch (\Exception $e) {
+            } catch (\Throwable $e) {
                 Log::error("Brevo REST API Exception for {$user->email}: " . $e->getMessage());
             }
         }

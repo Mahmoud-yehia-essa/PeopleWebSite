@@ -39,6 +39,7 @@ Route::middleware('guest')->group(function () {
 
     Route::get('auth/google', [GoogleController::class, 'redirectToGoogle'])->name('auth.google');
     Route::get('auth/google/callback', [GoogleController::class, 'handleGoogleCallback']);
+    Route::get('auth/google/app-callback', [GoogleController::class, 'appCallback'])->name('auth.google.app_callback');
 
     Route::get('auth/facebook', [FacebookController::class, 'redirectToFacebook'])->name('auth.facebook');
     Route::get('auth/facebook/callback', [FacebookController::class, 'handleFacebookCallback']);

@@ -47,4 +47,9 @@ return [
         'redirect' => env('FACEBOOK_REDIRECT_URI'),
     ],
 
+    'textmebot' => [
+        'api_key' => env('TEXTMEBOT_API_KEY', 'zh9d51Rp9csh'),
+        'url'     => env('TEXTMEBOT_URL', 'http://api.textmebot.com/send.php'),
+    ],
+
 ];

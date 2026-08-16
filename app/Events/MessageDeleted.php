@@ -14,19 +14,24 @@ class MessageDeleted implements ShouldBroadcastNow
 
     public int $messageId;
     public int $receiverId;
+    public ?int $senderId;
 
-    public function __construct(int $messageId, int $receiverId)
+    public function __construct(int $messageId, int $receiverId, ?int $senderId = null)
     {
         $this->messageId  = $messageId;
         $this->receiverId = $receiverId;
+        $this->senderId   = $senderId;
     }
 
     public function broadcastOn(): array
     {
-        // Broadcast on the receiver's private channel so they see the deletion live
-        return [
+        $channels = [
             new PrivateChannel('chat.' . $this->receiverId),
         ];
+        if ($this->senderId) {
+            $channels[] = new PrivateChannel('chat.' . $this->senderId);
+        }
+        return $channels;
     }
 
     public function broadcastAs(): string
