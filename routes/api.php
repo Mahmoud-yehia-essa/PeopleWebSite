@@ -199,8 +199,16 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('notifications/delete', [MiscApiController::class, 'deleteNotification']);
     Route::post('misc/search.php', [MiscApiController::class, 'search']);
 
-    // 7. مسار توليد رموز اتصال أغورا
-    Route::get('chat/call/generate_token.php', [AgoraCallApiController::class, 'generateToken']);
+    // 7. مسارات الاتصال الفوري عبر أغورا (Agora Calls)
+    Route::match(['get', 'post'], 'messages/call/initiate', [\App\Http\Controllers\CallController::class, 'initiateCall']);
+    Route::match(['get', 'post'], 'chat/call/initiate', [\App\Http\Controllers\CallController::class, 'initiateCall']);
+    Route::match(['get', 'post'], 'messages/call/accept', [\App\Http\Controllers\CallController::class, 'acceptCall']);
+    Route::match(['get', 'post'], 'messages/call/decline', [\App\Http\Controllers\CallController::class, 'declineCall']);
+    Route::match(['get', 'post'], 'messages/call/end', [\App\Http\Controllers\CallController::class, 'endCall']);
+    Route::match(['get', 'post'], 'messages/call/group/initiate', [\App\Http\Controllers\CallController::class, 'initiateGroupCall']);
+    Route::match(['get', 'post'], 'messages/call/group/join', [\App\Http\Controllers\CallController::class, 'joinGroupCall']);
+    Route::match(['get', 'post'], 'messages/call/token', [\App\Http\Controllers\CallController::class, 'generateToken']);
+    Route::match(['get', 'post'], 'chat/call/generate_token.php', [\App\Http\Controllers\CallController::class, 'generateToken']);
 
     // 8. مسارات سفراء الحكمة (Ambassadors)
     Route::match(['get', 'post'], 'ambassadors/data.php', [\App\Http\Controllers\AffiliateController::class, 'getAmbassadorData']);
@@ -275,3 +283,9 @@ Route::match(['get', 'post'], 'broadcasting/auth', function (\Illuminate\Http\Re
         ]);
     }
 });
+// مسارات الاتصال الاحتياطية العامة (تستخدم resolveCaller داخلياً للتحقق من Sanctum Bearer Token)
+Route::match(['get', 'post'], 'messages/call/initiate', [\App\Http\Controllers\CallController::class, 'initiateCall']);
+Route::match(['get', 'post'], 'chat/call/initiate', [\App\Http\Controllers\CallController::class, 'initiateCall']);
+Route::match(['get', 'post'], 'messages/call/accept', [\App\Http\Controllers\CallController::class, 'acceptCall']);
+Route::match(['get', 'post'], 'messages/call/decline', [\App\Http\Controllers\CallController::class, 'declineCall']);
+Route::match(['get', 'post'], 'messages/call/end', [\App\Http\Controllers\CallController::class, 'endCall']);

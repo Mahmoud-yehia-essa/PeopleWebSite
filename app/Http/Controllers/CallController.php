@@ -17,101 +17,144 @@ use Peterujah\Agora\Builders\RtcToken;
 class CallController extends Controller
 {
     /**
+     * Resolve authenticated user from Session, Sanctum, Bearer token, or request ID
+     */
+    private function resolveCaller(Request )
+    {
+         = ->user() ?: auth('sanctum')->user() ?: Auth::user();
+        if (!) {
+             = ->bearerToken();
+            if () {
+                 = \Laravel\Sanctum\PersonalAccessToken::findToken();
+                if ( && ->tokenable) {
+                     = ->tokenable;
+                }
+            }
+        }
+        if (! && ->filled('caller_id')) {
+             = User::find(->caller_id);
+        }
+        if (! && ->filled('user_id')) {
+             = User::find(->user_id);
+        }
+        if () {
+            auth()->setUser();
+            auth('sanctum')->setUser();
+        }
+        return ;
+    }
+
+    /**
      * Initiate a call request.
      */
-    public function initiateCall(Request $request)
+    public function initiateCall(Request )
     {
-        $receiverId = (int) ($request->receiver_id ?? $request->receiverId ?? $request->input('receiver_id') ?? $request->input('receiverId'));
+         = (int) (->receiver_id ?? ->receiverId ?? ->input('receiver_id') ?? ->input('receiverId'));
 
-        if (!$receiverId || !\App\Models\User::where('id', $receiverId)->exists()) {
+        if (! || !User::where('id', )->exists()) {
             return response()->json(['status' => 'error', 'message' => 'receiver_id is invalid or missing'], 422);
         }
 
-        $callerId = auth('sanctum')->id() ?? Auth::id();
-        if (!$callerId) {
+         = ->resolveCaller();
+        if (!) {
             return response()->json(['status' => 'error', 'message' => 'Unauthenticated'], 401);
         }
 
-        if ($callerId === $receiverId) {
+         = (int)->id;
+
+        if ( === ) {
             return response()->json(['status' => 'error', 'message' => 'لا يمكنك الاتصال بنفسك.'], 400);
         }
 
-        $caller = Auth::user();
-        $receiver = User::find($receiverId);
+         = User::find();
 
-        if (!$receiver || !$receiver->is_active) {
+        if (! || !->is_active) {
             return response()->json(['status' => 'error', 'message' => 'المستخدم الآخر غير نشط حالياً.'], 404);
         }
 
-        $appId = env('AGORA_APP_ID');
-        $appCertificate = env('AGORA_APP_CERTIFICATE');
+         = env('AGORA_APP_ID');
+         = env('AGORA_APP_CERTIFICATE');
 
-        if (!$appId || !$appCertificate) {
+        if (! || !) {
             return response()->json(['status' => 'error', 'message' => 'لم يتم إعداد مفاتيح Agora بشكل صحيح في الخادم.'], 500);
         }
 
         // Generate a unique channel name using current timestamp to avoid collisions
-        $channelName = 'call_' . min($callerId, $receiverId) . '_' . max($callerId, $receiverId) . '_' . time();
+         = 'call_' . min(, ) . '_' . max(, ) . '_' . time();
 
         try {
-            $expireTime = time() + 3600; // 1 hour expiration
+             = time() + 3600; // 1 hour expiration
 
-            $client = new Agora($appId, $appCertificate);
-            $client->setExpiration($expireTime);
+             = new Agora(, );
+            ->setExpiration();
 
-            // Generate token for Caller (User A) using caller's ID as the Agora UID
-            $callerAgoraUser = (new AgoraUser($callerId))
-                ->setChannel($channelName)
+            // Generate token for Caller (User A) using caller ID as the Agora UID
+             = (new AgoraUser())
+                ->setChannel()
                 ->setRole(Roles::RTC_PUBLISHER)
-                ->setPrivilegeExpire($expireTime);
-            $callerToken = RtcToken::buildTokenWithUid($client, $callerAgoraUser);
+                ->setPrivilegeExpire();
+             = RtcToken::buildTokenWithUid(, );
 
-            // Generate token for Receiver (User B) using receiver's ID as the Agora UID
-            $receiverAgoraUser = (new AgoraUser($receiverId))
-                ->setChannel($channelName)
+            // Generate token for Receiver (User B) using receiver ID as the Agora UID
+             = (new AgoraUser())
+                ->setChannel()
                 ->setRole(Roles::RTC_PUBLISHER)
-                ->setPrivilegeExpire($expireTime);
-            $receiverToken = RtcToken::buildTokenWithUid($client, $receiverAgoraUser);
+                ->setPrivilegeExpire();
+             = RtcToken::buildTokenWithUid(, );
+
+             = trim((->first_name ?? '') . ' ' . (->last_name ?? ''));
+            if (empty())  = ->name ?? 'مستخدم';
+             = ->avatar_url ?? ->profile_picture ?? null;
+
+            // Send FCM Call Notification to Receiver
+            try {
+                app(\App\Services\FcmNotificationService::class)->sendChatNotification(
+                    ,
+                    ,
+                    '📞 مكالمة صوتية واردة...',
+                    (int),
+                    ,
+                    ->token ?? null
+                );
+            } catch (\Throwable ) {}
 
             // Broadcast the call initiation event to the receiver
-            $callerName = $caller->first_name . ' ' . $caller->last_name;
-            $callerAvatar = $caller->avatar_url;
-
             broadcast(new CallInitiated(
-                $callerId,
-                $callerName,
-                $callerAvatar,
-                $receiverId,
-                $channelName,
-                $receiverToken
-            ))->toOthers();
+                ,
+                ,
+                ,
+                ,
+                ,
+                
+            ));
 
             return response()->json([
                 'status' => 'success',
-                'channel_name' => $channelName,
-                'token' => $callerToken,
-                'caller_id' => $callerId,
-                'receiver_id' => $receiverId,
-                'receiver_name' => $receiver->first_name . ' ' . $receiver->last_name,
-                'receiver_avatar' => $receiver->avatar_url,
-                'agora_app_id' => $appId
+                'channel_name' => ,
+                'token' => ,
+                'caller_id' => ,
+                'receiver_id' => ,
+                'receiver_name' => trim((->first_name ?? '') . ' ' . (->last_name ?? '')),
+                'receiver_avatar' => ->avatar_url ?? ->profile_picture ?? null,
+                'agora_app_id' => 
             ]);
-        } catch (\Exception $e) {
-            return response()->json(['status' => 'error', 'message' => 'فشل توليد رمز الاتصال: ' . $e->getMessage()], 500);
+        } catch (\Exception ) {
+            return response()->json(['status' => 'error', 'message' => 'فشل توليد رمز الاتصال: ' . ->getMessage()], 500);
         }
     }
 
     /**
      * Accept an incoming call.
      */
-    public function acceptCall(Request $request)
+    public function acceptCall(Request )
     {
-        $callerId = (int) ($request->caller_id ?? $request->callerId ?? $request->input('caller_id') ?? $request->input('callerId'));
-        $channelName = $request->channel_name ?? $request->channelName ?? $request->input('channel_name');
-        $receiverId = auth('sanctum')->id() ?? Auth::id();
+         = ->resolveCaller();
+         = (int) (->caller_id ?? ->callerId ?? ->input('caller_id') ?? ->input('callerId'));
+         = ->channel_name ?? ->channelName ?? ->input('channel_name');
+         =  ? (int)->id : (auth('sanctum')->id() ?? Auth::id());
 
-        if ($callerId && $channelName) {
-            broadcast(new CallAccepted($callerId, $receiverId, $channelName))->toOthers();
+        if ( && ) {
+            broadcast(new CallAccepted(, , ));
         }
 
         return response()->json(['status' => 'success']);
@@ -120,13 +163,14 @@ class CallController extends Controller
     /**
      * Decline an incoming call.
      */
-    public function declineCall(Request $request)
+    public function declineCall(Request )
     {
-        $callerId = (int) ($request->caller_id ?? $request->callerId ?? $request->input('caller_id') ?? $request->input('callerId'));
-        $receiverId = auth('sanctum')->id() ?? Auth::id();
+         = ->resolveCaller();
+         = (int) (->caller_id ?? ->callerId ?? ->input('caller_id') ?? ->input('callerId'));
+         =  ? (int)->id : (auth('sanctum')->id() ?? Auth::id());
 
-        if ($callerId) {
-            broadcast(new CallDeclined($callerId, $receiverId))->toOthers();
+        if () {
+            broadcast(new CallDeclined(, ));
         }
 
         return response()->json(['status' => 'success']);
@@ -135,23 +179,24 @@ class CallController extends Controller
     /**
      * End or cancel a call.
      */
-    public function endCall(Request $request)
+    public function endCall(Request )
     {
-        $targetUserId = (int) ($request->target_user_id ?? $request->targetUserId ?? $request->input('target_user_id') ?? $request->input('targetUserId'));
-        $channelName = $request->channel_name ?? $request->channelName ?? $request->input('channel_name');
-        $currentUserId = auth('sanctum')->id() ?? Auth::id();
+         = ->resolveCaller();
+         = (int) (->target_user_id ?? ->targetUserId ?? ->input('target_user_id') ?? ->input('targetUserId'));
+         = ->channel_name ?? ->channelName ?? ->input('channel_name');
+         =  ? (int)->id : (auth('sanctum')->id() ?? Auth::id());
 
-        if (!$targetUserId && $channelName && str_starts_with($channelName, 'call_')) {
-            $parts = explode('_', $channelName);
-            if (count($parts) >= 3) {
-                $id1 = (int) $parts[1];
-                $id2 = (int) $parts[2];
-                $targetUserId = ($id1 === (int) $currentUserId) ? $id2 : $id1;
+        if (! &&  && str_starts_with(, 'call_')) {
+             = explode('_', );
+            if (count() >= 3) {
+                 = (int) ;
+                 = (int) ;
+                 = ( === (int) ) ?  : ;
             }
         }
 
-        if ($targetUserId && $channelName) {
-            broadcast(new CallEnded($targetUserId, $channelName))->toOthers();
+        if ( && ) {
+            broadcast(new CallEnded(, ));
         }
 
         return response()->json(['status' => 'success']);
@@ -160,180 +205,175 @@ class CallController extends Controller
     /**
      * Initiate a group call request.
      */
-    public function initiateGroupCall(Request $request)
+    public function initiateGroupCall(Request )
     {
-        $request->validate([
+        ->validate([
             'group_id' => 'required|exists:groups,id',
         ]);
 
-        $callerId = Auth::id();
-        $groupId = (int) $request->group_id;
+         = ->resolveCaller();
+        if (!) {
+            return response()->json(['status' => 'error', 'message' => 'Unauthenticated'], 401);
+        }
+         = (int)->id;
+         = (int) ->group_id;
 
-        $caller = Auth::user();
-        $group = \App\Models\Group::with(['members' => function($q) {
-            $q->where('is_active', 1);
-        }])->find($groupId);
+         = \App\Models\Group::with(['members' => function() {
+            ->where('is_active', 1);
+        }])->find();
 
-        if (!$group) {
+        if (!) {
             return response()->json(['status' => 'error', 'message' => 'المجموعة غير موجودة.'], 404);
         }
 
-        // Check if caller is member
-        $isMember = $group->members->contains('user_id', $callerId);
-        if (!$isMember) {
+         = ->members->contains('user_id', );
+        if (!) {
             return response()->json(['status' => 'error', 'message' => 'غير مسموح لك بالاتصال في هذه المجموعة.'], 403);
         }
 
-        $appId = env('AGORA_APP_ID');
-        $appCertificate = env('AGORA_APP_CERTIFICATE');
+         = env('AGORA_APP_ID');
+         = env('AGORA_APP_CERTIFICATE');
 
-        if (!$appId || !$appCertificate) {
+        if (! || !) {
             return response()->json(['status' => 'error', 'message' => 'لم يتم إعداد مفاتيح Agora بشكل صحيح في الخادم.'], 500);
         }
 
-        // Unique channel name for the group call
-        $channelName = 'group_call_' . $groupId . '_' . time();
+         = 'group_call_' .  . '_' . time();
 
         try {
-            $expireTime = time() + 3600; // 1 hour expiration
+             = time() + 3600;
 
-            $client = new Agora($appId, $appCertificate);
-            $client->setExpiration($expireTime);
+             = new Agora(, );
+            ->setExpiration();
 
-            // Generate token for Caller (uid matches callerId)
-            $callerAgoraUser = (new AgoraUser($callerId))
-                ->setChannel($channelName)
+             = (new AgoraUser())
+                ->setChannel()
                 ->setRole(Roles::RTC_PUBLISHER)
-                ->setPrivilegeExpire($expireTime);
-            $callerToken = RtcToken::buildTokenWithUid($client, $callerAgoraUser);
+                ->setPrivilegeExpire();
+             = RtcToken::buildTokenWithUid(, );
 
-            $callerName = $caller->first_name . ' ' . $caller->last_name;
-            $callerAvatar = $caller->avatar_url;
+             = trim((->first_name ?? '') . ' ' . (->last_name ?? ''));
+            if (empty())  = ->name ?? 'مستخدم';
+             = ->avatar_url ?? ->profile_picture ?? null;
 
-            // Broadcast to all other active group members
-            foreach ($group->members as $member) {
-                if ((int)$member->user_id !== (int)$callerId) {
+            foreach (->members as ) {
+                if ((int)->user_id !== (int)) {
                     broadcast(new \App\Events\GroupCallInitiated(
-                        $callerId,
-                        $callerName,
-                        $callerAvatar,
-                        $groupId,
-                        $group->name,
-                        $channelName,
-                        (int)$member->user_id
-                    ))->toOthers();
+                        ,
+                        ,
+                        ,
+                        ,
+                        ->name,
+                        ,
+                        (int)->user_id
+                    ));
                 }
             }
 
             return response()->json([
                 'status' => 'success',
-                'channel_name' => $channelName,
-                'token' => $callerToken,
-                'caller_id' => $callerId,
-                'group_id' => $groupId,
-                'group_name' => $group->name,
-                'agora_app_id' => $appId
+                'channel_name' => ,
+                'token' => ,
+                'caller_id' => ,
+                'group_id' => ,
+                'group_name' => ->name,
+                'agora_app_id' => 
             ]);
-        } catch (\Exception $e) {
-            return response()->json(['status' => 'error', 'message' => 'فشل توليد رمز الاتصال الجماعي: ' . $e->getMessage()], 500);
+        } catch (\Exception ) {
+            return response()->json(['status' => 'error', 'message' => 'فشل توليد رمز الاتصال الجماعي: ' . ->getMessage()], 500);
         }
     }
 
     /**
      * Join an active group call (generate a token for the channel).
      */
-    public function joinGroupCall(Request $request)
+    public function joinGroupCall(Request )
     {
-        $request->validate([
+        ->validate([
             'group_id' => 'required|exists:groups,id',
             'channel_name' => 'required|string',
         ]);
 
-        $userId = Auth::id();
-        $groupId = (int) $request->group_id;
-        $channelName = $request->channel_name;
+         = ->resolveCaller();
+        if (!) {
+            return response()->json(['status' => 'error', 'message' => 'Unauthenticated'], 401);
+        }
+         = (int)->id;
+         = (int) ->group_id;
+         = ->channel_name;
 
-        // Verify membership
-        $isMember = \App\Models\GroupMember::where('group_id', $groupId)
-            ->where('user_id', $userId)
-            ->where('is_active', 1)
-            ->exists();
+         = \App\Models\Group::with(['members' => function() {
+            ->where('is_active', 1);
+        }])->find();
 
-        if (!$isMember) {
-            return response()->json(['status' => 'error', 'message' => 'غير مسموح لك بالانضمام لهذه المكالمة.'], 403);
+        if (! || !->members->contains('user_id', )) {
+            return response()->json(['status' => 'error', 'message' => 'غير مصرح لك بالانضمام لهذه المكالمة.'], 403);
         }
 
-        $appId = env('AGORA_APP_ID');
-        $appCertificate = env('AGORA_APP_CERTIFICATE');
-
-        if (!$appId || !$appCertificate) {
-            return response()->json(['status' => 'error', 'message' => 'لم يتم إعداد مفاتيح Agora بشكل صحيح في الخادم.'], 500);
-        }
+         = env('AGORA_APP_ID');
+         = env('AGORA_APP_CERTIFICATE');
 
         try {
-            $expireTime = time() + 3600;
+             = time() + 3600;
+             = new Agora(, );
+            ->setExpiration();
 
-            $client = new Agora($appId, $appCertificate);
-            $client->setExpiration($expireTime);
-
-            // Generate token for UID = userId
-            $agoraUser = (new AgoraUser($userId))
-                ->setChannel($channelName)
+             = (new AgoraUser())
+                ->setChannel()
                 ->setRole(Roles::RTC_PUBLISHER)
-                ->setPrivilegeExpire($expireTime);
-            $token = RtcToken::buildTokenWithUid($client, $agoraUser);
+                ->setPrivilegeExpire();
+             = RtcToken::buildTokenWithUid(, );
 
             return response()->json([
                 'status' => 'success',
-                'token' => $token,
-                'agora_app_id' => $appId,
-                'user_id' => $userId
+                'channel_name' => ,
+                'token' => ,
+                'caller_id' => ,
+                'group_id' => ,
+                'group_name' => ->name,
+                'agora_app_id' => 
             ]);
-        } catch (\Exception $e) {
-            return response()->json(['status' => 'error', 'message' => 'فشل الانضمام للمكالمة: ' . $e->getMessage()], 500);
+        } catch (\Exception ) {
+            return response()->json(['status' => 'error', 'message' => 'فشل توليد رمز الانضمام للمكالمة: ' . ->getMessage()], 500);
         }
     }
 
     /**
-     * Generate Agora RTC token for voice/video calls.
+     * Generate Agora Token dynamically for any channel.
      */
-    public function generateToken(Request $request)
+    public function generateToken(Request )
     {
-        $channelName = $request->input('channelName') ?? $request->input('channel_name');
-        if (!$channelName) {
-            return response()->json(['success' => false, 'status' => 'error', 'message' => 'اسم القناة (channelName) مطلوب.'], 400);
-        }
+         = ->resolveCaller();
+         =  ? (int)->id : (int) (->user_id ?? ->userId ?? 0);
+         = ->channel_name ?? ->channelName ?? ->input('channel_name') ?? 'wiselook_call';
 
-        $userId = (int) ($request->input('uid') ?? Auth::id() ?? 0);
+         = env('AGORA_APP_ID');
+         = env('AGORA_APP_CERTIFICATE');
 
-        $appId = env('AGORA_APP_ID');
-        $appCertificate = env('AGORA_APP_CERTIFICATE');
-
-        if (!$appId || !$appCertificate) {
-            return response()->json(['success' => false, 'status' => 'error', 'message' => 'لم يتم إعداد مفاتيح Agora بشكل صحيح في الخادم.'], 500);
+        if (! || !) {
+            return response()->json(['status' => 'error', 'message' => 'لم يتم إعداد مفاتيح Agora بشكل صحيح في الخادم.'], 500);
         }
 
         try {
-            $expireTime = time() + 3600;
-            $client = new Agora($appId, $appCertificate);
-            $client->setExpiration($expireTime);
+             = time() + 3600;
+             = new Agora(, );
+            ->setExpiration();
 
-            $agoraUser = (new AgoraUser($userId))
-                ->setChannel($channelName)
+             = (new AgoraUser())
+                ->setChannel()
                 ->setRole(Roles::RTC_PUBLISHER)
-                ->setPrivilegeExpire($expireTime);
-
-            $token = RtcToken::buildTokenWithUid($client, $agoraUser);
+                ->setPrivilegeExpire();
+             = RtcToken::buildTokenWithUid(, );
 
             return response()->json([
-                'success'      => true,
-                'status'       => 'success',
-                'token'        => $token,
-                'uid'          => $userId,
-                'agora_app_id' => $appId
+                'status' => 'success',
+                'channel_name' => ,
+                'token' => ,
+                'user_id' => ,
+                'agora_app_id' => 
             ]);
-        } catch (\Exception $e) {
-            return response()->json(['success' => false, 'status' => 'error', 'message' => 'فشل توليد الرمز: ' . $e->getMessage()], 500);
+        } catch (\Exception ) {
+            return response()->json(['status' => 'error', 'message' => 'فشل توليد رمز Agora: ' . ->getMessage()], 500);
         }
     }
 }
