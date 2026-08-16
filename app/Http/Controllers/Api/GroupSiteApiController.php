@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
 use App\Models\GroupSite;
 use App\Models\GroupSiteUser;
 use App\Models\GroupSubject;
@@ -937,11 +938,17 @@ class GroupSiteApiController extends Controller
                 }
             }
 
-            // Delete main group image
+            // Delete main group image & logo
             if ($group->image_path && !filter_var($group->image_path, FILTER_VALIDATE_URL)) {
                 $groupImg = public_path('upload/group_site_images/' . $group->image_path);
                 if (File::exists($groupImg)) {
                     File::delete($groupImg);
+                }
+            }
+            if ($group->logo_path && !filter_var($group->logo_path, FILTER_VALIDATE_URL)) {
+                $groupLogo = public_path('upload/group_site_logos/' . basename($group->logo_path));
+                if (File::exists($groupLogo)) {
+                    File::delete($groupLogo);
                 }
             }
 
