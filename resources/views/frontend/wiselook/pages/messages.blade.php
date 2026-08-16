@@ -3117,87 +3117,88 @@
         }
 
         // --- Laravel Echo WebSockets Real-time Listeners ---
-        if (window.Echo) {
-            console.log('Echo connection established for user: ' + authUserId);
+        function initChatEcho(retries = 0) {
+            if (window.Echo) {
+                console.log('Echo connection established for user: ' + authUserId);
 
-            // Join Presence Channel to track online status
-            window.Echo.join('chat-presence')
-                .here((users) => {
-                    users.forEach(u => onlineUsers.add(parseInt(u.id)));
-                    updateAllUsersStatusUI();
-                })
-                .joining((user) => {
-                    onlineUsers.add(parseInt(user.id));
-                    updateUserStatusUI(user.id, true);
-                })
-                .leaving((user) => {
-                    onlineUsers.delete(parseInt(user.id));
-                    updateUserStatusUI(user.id, false);
-                });
-            
-            // Subscribe to active conversation channel on page load if activeUserId is defined
-            if (activeUserId) {
-                activeConversationChannel = window.Echo.private(`chat.${activeUserId}`);
-                activeConversationChannel.subscribed(() => {
-                    console.log('Successfully subscribed to whisper channel chat.' + activeUserId + ' on load');
-                }).error((e) => {
-                    console.error('Subscription error to chat.' + activeUserId + ' on load', e);
-                });
-            }
+                // Join Presence Channel to track online status
+                window.Echo.join('chat-presence')
+                    .here((users) => {
+                        users.forEach(u => onlineUsers.add(parseInt(u.id)));
+                        updateAllUsersStatusUI();
+                    })
+                    .joining((user) => {
+                        onlineUsers.add(parseInt(user.id));
+                        updateUserStatusUI(user.id, true);
+                    })
+                    .leaving((user) => {
+                        onlineUsers.delete(parseInt(user.id));
+                        updateUserStatusUI(user.id, false);
+                    });
+                
+                // Subscribe to active conversation channel on page load if activeUserId is defined
+                if (activeUserId) {
+                    activeConversationChannel = window.Echo.private(`chat.${activeUserId}`);
+                    activeConversationChannel.subscribed(() => {
+                        console.log('Successfully subscribed to whisper channel chat.' + activeUserId + ' on load');
+                    }).error((e) => {
+                        console.error('Subscription error to chat.' + activeUserId + ' on load', e);
+                    });
+                }
 
-            window.Echo.private(`chat.${authUserId}`)
-                .listen('.MessageSent', (e) => {
-                    console.log('New message received via WebSocket:', e);
-                    
-                    let previewText = e.message;
-                    if (e.image_url) {
-                        previewText = '📷 ' + _tp.imageLabel + (e.message ? `: ${e.message}` : '');
-                    } else if (e.video_url) {
-                        previewText = '🎥 ' + _tp.videoLabel + (e.message ? `: ${e.message}` : '');
-                    } else if (e.audio_url) {
-                        previewText = '🎙️ ' + _tp.voiceMessageLabel;
-                    }
-                    
-                    // 1. If message belongs to current active conversation
-                    if (parseInt(e.sender_id) === parseInt(activeUserId)) {
-                        if (e.id && $(`.message-item[data-id="${e.id}"]`).length > 0) {
-                            return;
-                        }
-                        appendMessage({
-                            id: e.id,
-                            message: e.message,
-                            image_url: e.image_url,
-                            video_url: e.video_url,
-                            audio_url: e.audio_url,
-                            parent: e.parent,
-                            sender_id: e.sender_id,
-                            created_at: e.created_at
-                        }, false);
+                window.Echo.private(`chat.${authUserId}`)
+                    .listen('.MessageSent', (e) => {
+                        console.log('New message received via WebSocket:', e);
                         
-                        // Update last message in sidebar (and move to top)
-                        updateSidebarLastMessage(e.sender_id, previewText, e.created_at);
-                    } else {
-                        // 2. Message belongs to another user conversation
-                        // Update last message in sidebar and increment/show unread badge
-                        const sidebarItem = $(`.conversation-item[data-user-id="${e.sender_id}"]`);
-                        if (sidebarItem.length > 0) {
-                            sidebarItem.find('.last-message-text').text(previewText);
-                            sidebarItem.find('.last-message-time').text(formatTime(e.created_at));
+                        let previewText = e.message;
+                        if (e.image_url) {
+                            previewText = '📷 ' + _tp.imageLabel + (e.message ? `: ${e.message}` : '');
+                        } else if (e.video_url) {
+                            previewText = '🎥 ' + _tp.videoLabel + (e.message ? `: ${e.message}` : '');
+                        } else if (e.audio_url) {
+                            previewText = '🎙️ ' + _tp.voiceMessageLabel;
+                        }
+                        
+                        // 1. If message belongs to current active conversation
+                        if (parseInt(e.sender_id) === parseInt(activeUserId)) {
+                            if (e.id && $(`.message-item[data-id="${e.id}"]`).length > 0) {
+                                return;
+                            }
+                            appendMessage({
+                                id: e.id,
+                                message: e.message,
+                                image_url: e.image_url,
+                                video_url: e.video_url,
+                                audio_url: e.audio_url,
+                                parent: e.parent,
+                                sender_id: e.sender_id,
+                                created_at: e.created_at
+                            }, false);
                             
-                            // Show/Increment badge
-                            const badge = sidebarItem.find('.unread-badge');
-                            let count = parseInt(badge.text()) || 0;
-                            count++;
-                            badge.text(count).removeClass('hidden');
-                            
-                            // Visual shake/pulse effect
-                            sidebarItem.addClass('bg-primary/5 transition-all duration-300');
-                            setTimeout(() => {
-                                sidebarItem.removeClass('bg-primary/5');
-                            }, 1000);
-                            
-                            // Prepend to DM conversations container
-                            $('#dm-conversations-container').prepend(sidebarItem);
+                            // Update last message in sidebar (and move to top)
+                            updateSidebarLastMessage(e.sender_id, previewText, e.created_at);
+                        } else {
+                            // 2. Message belongs to another user conversation
+                            // Update last message in sidebar and increment/show unread badge
+                            const sidebarItem = $(`.conversation-item[data-user-id="${e.sender_id}"]`);
+                            if (sidebarItem.length > 0) {
+                                sidebarItem.find('.last-message-text').text(previewText);
+                                sidebarItem.find('.last-message-time').text(formatTime(e.created_at));
+                                
+                                // Show/Increment badge
+                                const badge = sidebarItem.find('.unread-badge');
+                                let count = parseInt(badge.text()) || 0;
+                                count++;
+                                badge.text(count).removeClass('hidden');
+                                
+                                // Visual shake/pulse effect
+                                sidebarItem.addClass('bg-primary/5 transition-all duration-300');
+                                setTimeout(() => {
+                                    sidebarItem.removeClass('bg-primary/5');
+                                }, 1000);
+                                
+                                // Prepend to DM conversations container
+                                $('#dm-conversations-container').prepend(sidebarItem);
                         } else {
                             // If conversation item doesn't exist, create it with unread badge!
                             const newItemHtml = `
@@ -3892,9 +3893,69 @@
                     }, 2500);
                 }
             });
-        } else {
-            console.error('Laravel Echo is not defined on the window object.');
+            } else if (retries < 25) {
+                setTimeout(function() {
+                    initChatEcho(retries + 1);
+                }, 400);
+            } else {
+                console.warn('Laravel Echo is not defined after retries. Polling fallback will handle real-time chat.');
+            }
         }
+        initChatEcho();
+
+        // --- Smart Polling Fallback (ensures instant sync even if WebSockets are down) ---
+        let smartPollingInterval = null;
+        function startSmartPolling() {
+            if (smartPollingInterval) clearInterval(smartPollingInterval);
+            smartPollingInterval = setInterval(function() {
+                if (document.hidden) return; // Save bandwidth when tab is in background
+
+                if (activeUserId) {
+                    $.ajax({
+                        url: `/messages/fetch/${activeUserId}`,
+                        type: 'GET',
+                        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                        success: function(messages) {
+                            if (messages && Array.isArray(messages) && messages.length > 0) {
+                                let hasNew = false;
+                                messages.forEach(function(msg) {
+                                    if (msg && msg.id && $(`.message-item[data-id="${msg.id}"]`).length === 0) {
+                                        const isSelf = parseInt(msg.sender_id) === parseInt(authUserId);
+                                        appendMessage(msg, isSelf, false);
+                                        hasNew = true;
+                                    }
+                                });
+                                if (hasNew) {
+                                    scrollToBottom();
+                                }
+                            }
+                        }
+                    });
+                } else if (activeGroupId) {
+                    $.ajax({
+                        url: `/messages/groups/${activeGroupId}/messages`,
+                        type: 'GET',
+                        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                        success: function(messages) {
+                            if (messages && Array.isArray(messages) && messages.length > 0) {
+                                let hasNew = false;
+                                messages.forEach(function(msg) {
+                                    if (msg && msg.id && $(`.message-item[data-id="${msg.id}"]`).length === 0) {
+                                        const isSelf = parseInt(msg.sender_id) === parseInt(authUserId);
+                                        appendMessage(msg, isSelf, false);
+                                        hasNew = true;
+                                    }
+                                });
+                                if (hasNew) {
+                                    scrollToBottom();
+                                }
+                            }
+                        }
+                    });
+                }
+            }, 3000);
+        }
+        startSmartPolling();
     });
 </script>
 @endpush
