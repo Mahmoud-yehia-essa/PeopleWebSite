@@ -96,35 +96,7 @@ class ChatApiController extends Controller
             ?? $request->input('id');
 
         if (!$receiverId) {
-            
-        // إرسال إشعار FCM سحابي للمستقبل
-        try {
-            $senderUser = $request->user() ?: \App\Models\User::find($senderId);
-            $senderName = $senderUser ? trim($senderUser->first_name . ' ' . $senderUser->last_name) : 'مستخدم';
-            $senderPic = $senderUser ? $senderUser->profile_picture : null;
-            $senderToken = $senderUser ? $senderUser->token : null;
-
-            $bodyPreview = $messageText;
-            if (empty($bodyPreview)) {
-                if ($imagePath) $bodyPreview = '📷 أرسل صورة';
-                elseif ($videoPath) $bodyPreview = '🎥 أرسل فيديو';
-                elseif ($audioPath) $bodyPreview = '🎤 أرسل تسجيلاً صوتياً';
-                else $bodyPreview = 'أرسل رسالة جديدة';
-            }
-
-            app(\App\Services\FcmNotificationService::class)->sendChatNotification(
-                $receiverId,
-                $senderName,
-                $bodyPreview,
-                (int)$senderId,
-                $senderPic,
-                $senderToken
-            );
-        } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::warning('FCM Chat send error: ' . $e->getMessage());
-        }
-
-        return response()->json([
+            return response()->json([
                 'success' => false,
                 'status'  => 'error',
                 'message' => 'مُعرّف المستقبل (receiver_id) مطلوب.'
@@ -199,6 +171,33 @@ class ChatApiController extends Controller
             }
         } catch (\Throwable $e) {
             \Illuminate\Support\Facades\Log::warning('Reverb API Broadcast Error: ' . $e->getMessage());
+        }
+
+        // إرسال إشعار FCM سحابي للمستقبل
+        try {
+            $senderUser = $request->user() ?: \App\Models\User::find($senderId);
+            $senderName = $senderUser ? trim($senderUser->first_name . ' ' . $senderUser->last_name) : 'مستخدم';
+            $senderPic = $senderUser ? $senderUser->profile_picture : null;
+            $senderToken = $senderUser ? $senderUser->token : null;
+
+            $bodyPreview = $messageText;
+            if (empty($bodyPreview)) {
+                if ($imagePath) $bodyPreview = '📷 أرسل صورة';
+                elseif ($videoPath) $bodyPreview = '🎥 أرسل فيديو';
+                elseif ($audioPath) $bodyPreview = '🎤 أرسل تسجيلاً صوتياً';
+                else $bodyPreview = 'أرسل رسالة جديدة';
+            }
+
+            app(\App\Services\FcmNotificationService::class)->sendChatNotification(
+                $receiverId,
+                $senderName,
+                $bodyPreview,
+                (int)$senderId,
+                $senderPic,
+                $senderToken
+            );
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('FCM Chat send error: ' . $e->getMessage());
         }
 
         $primaryUrl = $message->image_url ?? $message->video_url ?? $message->audio_url;

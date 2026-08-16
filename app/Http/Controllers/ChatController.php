@@ -260,36 +260,8 @@ class ChatController extends Controller
             ?? $request->input('person_id');
 
         if (!$receiverId) {
-            
-        // إرسال إشعار FCM سحابي للمستقبل
-        try {
-            $senderUser = $request->user() ?: \App\Models\User::find($senderId);
-            $senderName = $senderUser ? trim($senderUser->first_name . ' ' . $senderUser->last_name) : 'مستخدم';
-            $senderPic = $senderUser ? $senderUser->profile_picture : null;
-            $senderToken = $senderUser ? $senderUser->token : null;
-
-            $bodyPreview = $messageText;
-            if (empty($bodyPreview)) {
-                if ($imagePath) $bodyPreview = '📷 أرسل صورة';
-                elseif ($videoPath) $bodyPreview = '🎥 أرسل فيديو';
-                elseif ($audioPath) $bodyPreview = '🎤 أرسل تسجيلاً صوتياً';
-                else $bodyPreview = 'أرسل رسالة جديدة';
-            }
-
-            app(\App\Services\FcmNotificationService::class)->sendChatNotification(
-                $receiverId,
-                $senderName,
-                $bodyPreview,
-                (int)$senderId,
-                $senderPic,
-                $senderToken
-            );
-        } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::warning('FCM Chat send error: ' . $e->getMessage());
-        }
-
-        return response()->json([
-                'status' => 'error',
+            return response()->json([
+                'status'  => 'error',
                 'success' => false,
                 'message' => 'مُعرّف المستقبل (receiver_id) مطلوب.'
             ], 422);
@@ -318,59 +290,90 @@ class ChatController extends Controller
             $tempInputPath = $file->getRealPath();
             $targetDirectory = public_path('new_wiselook/uploads');
 
-            // Use ffprobe to query duration
-            $ffprobePath = '/opt/homebrew/bin/ffprobe';
-            $durationCmd = "$ffprobePath -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 " . escapeshellarg($tempInputPath);
-            $originalDuration = floatval(trim(shell_exec($durationCmd)));
+            if (!file_exists($targetDirectory)) {
+                mkdir($targetDirectory, 0777, true);
+            }
 
-            $trimStart = $request->input('trim_start');
-            $trimEnd = $request->input('trim_end');
+            $outputFileName = date('YmdHis') . '_msg_compressed.mp4';
+            $outputPath = $targetDirectory . '/' . $outputFileName;
 
-            if ($originalDuration > 120 || !is_null($trimStart) || !is_null($trimEnd)) {
-                // Must be trimmed / transcoded
-                $videoName = date('YmdHis') . '_msg_vid.mp4';
-                $targetPath = $targetDirectory . '/' . $videoName;
-                
-                $start = !is_null($trimStart) ? floatval($trimStart) : 0.0;
-                $end = !is_null($trimEnd) ? floatval($trimEnd) : min($originalDuration, 120.0);
-                
-                // Enforce maximum 2 minutes (120s)
-                $duration = $end - $start;
-                if ($duration > 120.0 || $duration <= 0) {
-                    $duration = min(120.0, $originalDuration);
+            $compressed = false;
+            if (function_exists('exec')) {
+                $cmd = "ffmpeg -y -i " . escapeshellarg($tempInputPath) . " -vcodec libx264 -crf 28 -preset fast -acodec aac -b:a 128k -movflags +faststart " . escapeshellarg($outputPath) . " 2>&1";
+                @exec($cmd, $output, $returnCode);
+                if ($returnCode === 0 && file_exists($outputPath) && filesize($outputPath) > 0) {
+                    $compressed = true;
+                    $videoPath = $outputFileName;
                 }
+            }
 
-                $ffmpegPath = '/opt/homebrew/bin/ffmpeg';
-                $cmd = "$ffmpegPath -ss $start -i " . escapeshellarg($tempInputPath) . " -t $duration -c:v libx264 -c:a aac -y " . escapeshellarg($targetPath) . " 2>&1";
-                shell_exec($cmd);
-                
-                $videoPath = $videoName;
-            } else {
-                // Save original directly
-                $videoName = date('YmdHis') . '_msg_vid.' . $originalExtension;
+            if (!$compressed) {
+                $videoName = date('YmdHis') . '_msg.' . $originalExtension;
                 $file->move($targetDirectory, $videoName);
                 $videoPath = $videoName;
             }
         }
 
         $audioPath = null;
-        if ($request->hasFile('audio')) {
-            $file = $request->file('audio');
-            // Browser recorded audios are often webm or ogg, we'll keep the extension
-            $audioName = date('YmdHis') . '_msg_audio.' . $file->getClientOriginalExtension();
+        if ($request->hasFile('audio') || $request->hasFile('voice')) {
+            $file = $request->file('audio') ?? $request->file('voice');
+            $audioName = date('YmdHis') . '_msg_audio.m4a';
             $file->move(public_path('new_wiselook/uploads'), $audioName);
             $audioPath = $audioName;
         }
 
         $message = Message::create([
-            'sender_id' => $senderId,
+            'sender_id'   => $senderId,
             'receiver_id' => $receiverId,
-            'message' => $messageText,
-            'image' => $imagePath,
-            'video' => $videoPath,
-            'audio' => $audioPath,
-            'parent_id' => $request->input('parent_id') ?? $request->input('reply_to_id'),
+            'message'     => $messageText,
+            'image'       => $imagePath,
+            'video'       => $videoPath,
+            'audio'       => $audioPath,
+            'parent_id'   => $request->input('parent_id') ?? $request->input('reply_to_id'),
         ]);
+
+        $message->load(['sender', 'parent.sender']);
+        $message->image_url = $message->image ? (str_starts_with($message->image, 'http') ? $message->image : asset('new_wiselook/uploads/' . basename($message->image))) : null;
+        $message->video_url = $message->video ? (str_starts_with($message->video, 'http') ? $message->video : asset('new_wiselook/uploads/' . basename($message->video))) : null;
+        $message->audio_url = $message->audio ? (str_starts_with($message->audio, 'http') ? $message->audio : asset('new_wiselook/uploads/' . basename($message->audio))) : null;
+
+        // البث الفوري عبر Reverb للتطبيق والويب
+        try {
+            if ($request->hasHeader('X-Socket-ID') || $request->has('socket_id')) {
+                broadcast(new MessageSent($message))->toOthers();
+            } else {
+                event(new MessageSent($message));
+            }
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Reverb Broadcast Error: ' . $e->getMessage());
+        }
+
+        // إرسال إشعار FCM سحابي للمستقبل
+        try {
+            $senderUser = $request->user() ?: \App\Models\User::find($senderId);
+            $senderName = $senderUser ? trim($senderUser->first_name . ' ' . $senderUser->last_name) : 'مستخدم';
+            $senderPic = $senderUser ? $senderUser->profile_picture : null;
+            $senderToken = $senderUser ? $senderUser->token : null;
+
+            $bodyPreview = $messageText;
+            if (empty($bodyPreview)) {
+                if ($imagePath) $bodyPreview = '📷 أرسل صورة';
+                elseif ($videoPath) $bodyPreview = '🎥 أرسل فيديو';
+                elseif ($audioPath) $bodyPreview = '🎤 أرسل تسجيلاً صوتياً';
+                else $bodyPreview = 'أرسل رسالة جديدة';
+            }
+
+            app(\App\Services\FcmNotificationService::class)->sendChatNotification(
+                $receiverId,
+                $senderName,
+                $bodyPreview,
+                (int)$senderId,
+                $senderPic,
+                $senderToken
+            );
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('FCM Chat send error: ' . $e->getMessage());
+        }
 
         $tempId = $request->input('temp_id') 
             ?? $request->input('client_id') 
