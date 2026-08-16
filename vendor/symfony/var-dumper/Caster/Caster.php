@@ -191,11 +191,12 @@ class Caster
                 continue;
             }
 
+            $isVirtual = method_exists($p, 'isVirtual') && $p->isVirtual();
             $classProperties[match (true) {
                 $p->isPublic() => $p->name,
                 $p->isProtected() => self::PREFIX_PROTECTED.$p->name,
                 default => "\0".$className."\0".$p->name,
-            }] = $p->isVirtual() ? new VirtualStub($p) : new UninitializedStub($p);
+            }] = $isVirtual ? new VirtualStub($p) : new UninitializedStub($p);
         }
 
         return $classProperties;
