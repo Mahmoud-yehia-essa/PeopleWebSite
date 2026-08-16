@@ -3248,8 +3248,9 @@
             // Listen for real-time message deletions on own private channel
             window.Echo.private(`chat.${authUserId}`)
                 .listen('.MessageDeleted', (e) => {
-                    if (e.message_id) {
-                        removeMessageFromUI(e.message_id);
+                    const msgId = e.message_id || e.id;
+                    if (msgId) {
+                        removeMessageFromUI(msgId);
                     }
                 })
                 .listen('.GroupMessageSent', (e) => {
@@ -3916,8 +3917,11 @@
                         type: 'GET',
                         headers: { 'X-Requested-With': 'XMLHttpRequest' },
                         success: function(messages) {
-                            if (messages && Array.isArray(messages) && messages.length > 0) {
+                            if (messages && Array.isArray(messages)) {
                                 let hasNew = false;
+                                const serverIds = new Set(messages.map(m => String(m.id)));
+
+                                // 1. Add any new messages
                                 messages.forEach(function(msg) {
                                     if (msg && msg.id && $(`.message-item[data-id="${msg.id}"]`).length === 0) {
                                         const isSelf = parseInt(msg.sender_id) === parseInt(authUserId);
@@ -3925,6 +3929,19 @@
                                         hasNew = true;
                                     }
                                 });
+
+                                // 2. Remove any messages deleted from the server within current visible batch
+                                if (messages.length > 0) {
+                                    const minId = Math.min(...messages.map(m => parseInt(m.id)));
+                                    const maxId = Math.max(...messages.map(m => parseInt(m.id)));
+                                    $('#messages-list-wrapper .message-item').each(function() {
+                                        const domId = parseInt($(this).attr('data-id'));
+                                        if (domId && domId >= minId && domId <= maxId && !serverIds.has(String(domId))) {
+                                            removeMessageFromUI(domId);
+                                        }
+                                    });
+                                }
+
                                 if (hasNew) {
                                     scrollToBottom();
                                 }
@@ -3937,8 +3954,11 @@
                         type: 'GET',
                         headers: { 'X-Requested-With': 'XMLHttpRequest' },
                         success: function(messages) {
-                            if (messages && Array.isArray(messages) && messages.length > 0) {
+                            if (messages && Array.isArray(messages)) {
                                 let hasNew = false;
+                                const serverIds = new Set(messages.map(m => String(m.id)));
+
+                                // 1. Add any new group messages
                                 messages.forEach(function(msg) {
                                     if (msg && msg.id && $(`.message-item[data-id="${msg.id}"]`).length === 0) {
                                         const isSelf = parseInt(msg.sender_id) === parseInt(authUserId);
@@ -3946,6 +3966,19 @@
                                         hasNew = true;
                                     }
                                 });
+
+                                // 2. Remove any group messages deleted from server
+                                if (messages.length > 0) {
+                                    const minId = Math.min(...messages.map(m => parseInt(m.id)));
+                                    const maxId = Math.max(...messages.map(m => parseInt(m.id)));
+                                    $('#messages-list-wrapper .message-item').each(function() {
+                                        const domId = parseInt($(this).attr('data-id'));
+                                        if (domId && domId >= minId && domId <= maxId && !serverIds.has(String(domId))) {
+                                            removeMessageFromUI(domId);
+                                        }
+                                    });
+                                }
+
                                 if (hasNew) {
                                     scrollToBottom();
                                 }

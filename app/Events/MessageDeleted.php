@@ -27,9 +27,11 @@ class MessageDeleted implements ShouldBroadcastNow
     {
         $channels = [
             new PrivateChannel('chat.' . $this->receiverId),
+            new PrivateChannel('private-chat.' . $this->receiverId),
         ];
         if ($this->senderId) {
             $channels[] = new PrivateChannel('chat.' . $this->senderId);
+            $channels[] = new PrivateChannel('private-chat.' . $this->senderId);
         }
         return $channels;
     }
@@ -42,7 +44,10 @@ class MessageDeleted implements ShouldBroadcastNow
     public function broadcastWith(): array
     {
         return [
-            'message_id' => $this->messageId,
+            'message_id'  => (int)$this->messageId,
+            'id'          => (int)$this->messageId,
+            'receiver_id' => (int)$this->receiverId,
+            'sender_id'   => (int)$this->senderId,
         ];
     }
 }
