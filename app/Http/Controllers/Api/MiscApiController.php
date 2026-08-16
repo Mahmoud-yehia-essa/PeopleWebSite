@@ -45,24 +45,28 @@ class MiscApiController extends Controller
         $notificationsCollection = collect();
 
         $formatAvatar = function ($raw) {
-            if (empty($raw) || $raw === 'non') {
+            if (empty($raw) || $raw === 'non' || $raw === 'null' || $raw === 'undefined') {
                 return null;
             }
-            return filter_var($raw, FILTER_VALIDATE_URL) ? $raw : asset('new_wiselook/uploads/' . $raw);
+            $raw = trim($raw);
+            if (str_starts_with($raw, 'file://') || str_starts_with($raw, 'file:/')) {
+                $raw = preg_replace('/^file:\/+/i', '', $raw);
+            }
+            if (empty($raw)) return null;
+            return filter_var($raw, FILTER_VALIDATE_URL) ? $raw : asset('new_wiselook/uploads/' . ltrim($raw, '/'));
         };
 
-        // أ. جلب إشعارات الإدارة من جدول notification_for_apps
+        // أ. جلب إشعارات الإدارة من جدول notification_for_apps (آخر 50 إشعار)
         try {
             $adminNotifications = NotificationForApp::where(function ($query) use ($currentUser) {
                 $query->where('user_id', $currentUser->id)
                       ->orWhereNull('user_id')
                       ->orWhere('user_id', 0);
-            })->get();
+            })->latest()->limit(50)->get();
 
             foreach ($adminNotifications as $adminNotif) {
                 $rawView = strtolower(trim((string)$adminNotif->user_view));
                 $isAdminSeen = ($rawView === 'yes' || $rawView === '1' || $rawView === 'true');
-
                 $createdAt = $adminNotif->created_at ?: ($adminNotif->date ? \Carbon\Carbon::parse($adminNotif->date) : now());
 
                 $notificationsCollection->push([
@@ -87,13 +91,16 @@ class MiscApiController extends Controller
             \Illuminate\Support\Facades\Log::error('Error fetching notification_for_apps: ' . $e->getMessage());
         }
 
-        // ب. جلب الإشعارات الأساسية المسجلة في جدول notifications
+        // ب. جلب الإشعارات الأساسية المسجلة في جدول notifications (آخر 100 إشعار)
         $dbNotifications = \Illuminate\Support\Facades\DB::table('notifications')
-            ->where('notifiable_type', 'App\\Models\\User')
+            ->where('notifiable_type', 'App\Models\User')
             ->where('notifiable_id', $currentUser->id)
+            ->latest()
+            ->limit(100)
             ->get();
 
         $existingNotificationKeys = [];
+        $activeFriendSenderIds = Friendship::where('receiver_id', $currentUser->id)->where('is_active', 1)->pluck('sender_id')->all();
 
         foreach ($dbNotifications as $notif) {
             $data = json_decode($notif->data, true);
@@ -110,17 +117,9 @@ class MiscApiController extends Controller
                 $postId = isset($data['post_id']) ? (int)$data['post_id'] : null;
                 $senderId = isset($data['sender_id']) ? (int)$data['sender_id'] : null;
 
-                if ($type === 'friend_request' && $senderId) {
-                    $isActiveFriend = \App\Models\Friendship::where(function($q) use ($currentUser, $senderId) {
-                        $q->where('sender_id', $senderId)->where('receiver_id', $currentUser->id);
-                    })->orWhere(function($q) use ($currentUser, $senderId) {
-                        $q->where('sender_id', $currentUser->id)->where('receiver_id', $senderId);
-                    })->where('is_active', 1)->exists();
-
-                    if ($isActiveFriend) {
-                        $type = 'friend_accept';
-                        $title = 'قبول طلب صداقة';
-                    }
+                if ($type === 'friend_request' && $senderId && in_array($senderId, $activeFriendSenderIds)) {
+                    $type = 'friend_accept';
+                    $title = 'قبول طلب صداقة';
                 }
 
                 $dedupKey = "{$type}_{$senderId}_{$postId}";
@@ -142,17 +141,19 @@ class MiscApiController extends Controller
             }
         }
 
-        // جـ. جلب إشعارات طلبات الصداقة (فقط في حال لم تكن مسجلة بجدول notifications)
+        // جـ. جلب إشعارات طلبات الصداقة المعلقة
         $friendRequests = Friendship::with('sender')
             ->where('receiver_id', $currentUser->id)
             ->where('is_active', 0)
+            ->latest()
+            ->limit(30)
             ->get();
 
         foreach ($friendRequests as $req) {
             if ($req->sender) {
                 $dedupKey = "friend_request_{$req->sender->id}_";
                 if (isset($existingNotificationKeys[$dedupKey])) {
-                    continue; // منع التكرار
+                    continue;
                 }
                 $existingNotificationKeys[$dedupKey] = true;
 
@@ -171,85 +172,82 @@ class MiscApiController extends Controller
             }
         }
 
-        // دـ. جلب إشعارات الإعجابات (فقط في حال لم تكن مسجلة مسبقاً)
-        $postLikes = Reaction::with(['user', 'post'])
-            ->where('content_type_id', 1)
-            ->where('is_active', 1)
-            ->where('user_id', '!=', $currentUser->id)
-            ->whereHas('post', function ($query) use ($currentUser) {
-                $query->where('user_id', $currentUser->id);
-            })->get();
+        // دـ. جلب إشعارات التفاعلات والتعليقات باستخدام المعرفات المفهرسة
+        $userPostIds = \App\Models\Post::where('user_id', $currentUser->id)->latest()->limit(50)->pluck('id')->all();
+        if (!empty($userPostIds)) {
+            $postLikes = Reaction::with(['user', 'post'])
+                ->where('content_type_id', 1)
+                ->where('is_active', 1)
+                ->where('user_id', '!=', $currentUser->id)
+                ->whereIn('post_id', $userPostIds)
+                ->latest()
+                ->limit(25)
+                ->get();
 
-        foreach ($postLikes as $like) {
-            if ($like->user && $like->post) {
-                $dedupKey = "like_{$like->user->id}_{$like->post->id}";
-                if (isset($existingNotificationKeys[$dedupKey])) {
-                    continue; // منع التكرار
+            foreach ($postLikes as $like) {
+                if ($like->user && $like->post) {
+                    $dedupKey = "like_{$like->user->id}_{$like->post->id}";
+                    if (isset($existingNotificationKeys[$dedupKey])) continue;
+                    $existingNotificationKeys[$dedupKey] = true;
+
+                    $snippet = \Illuminate\Support\Str::limit(strip_tags($like->post->content), 35) ?: 'منشورك';
+                    $notificationsCollection->push([
+                        'id'          => (string)$like->id,
+                        'type'        => 'like',
+                        'title'       => 'تفاعل جديد',
+                        'message'     => 'قام ' . $like->user->first_name . ' بالإعجاب بموضوعك: "' . $snippet . '"',
+                        'description' => 'قام ' . $like->user->first_name . ' بالإعجاب بموضوعك: "' . $snippet . '"',
+                        'sender_id'   => (int)$like->user->id,
+                        'sender_name' => trim($like->user->first_name . ' ' . $like->user->last_name),
+                        'avatar'      => $formatAvatar($like->user->profile_picture),
+                        'post_id'     => (int)$like->post->id,
+                        'created_at'  => $like->created_at
+                    ]);
                 }
-                $existingNotificationKeys[$dedupKey] = true;
+            }
 
-                $snippet = \Illuminate\Support\Str::limit(strip_tags($like->post->content), 35) ?: 'منشورك';
-                $notificationsCollection->push([
-                    'id'          => (string)$like->id,
-                    'type'        => 'like',
-                    'title'       => 'تفاعل جديد',
-                    'message'     => 'قام ' . $like->user->first_name . ' بالإعجاب بموضوعك: "' . $snippet . '"',
-                    'description' => 'قام ' . $like->user->first_name . ' بالإعجاب بموضوعك: "' . $snippet . '"',
-                    'sender_id'   => (int)$like->user->id,
-                    'sender_name' => trim($like->user->first_name . ' ' . $like->user->last_name),
-                    'avatar'      => $formatAvatar($like->user->profile_picture),
-                    'post_id'     => (int)$like->post->id,
-                    'created_at'  => $like->created_at
-                ]);
+            $postComments = Comment::with(['user', 'post'])
+                ->where('is_active', 1)
+                ->where('user_id', '!=', $currentUser->id)
+                ->whereIn('post_id', $userPostIds)
+                ->latest()
+                ->limit(25)
+                ->get();
+
+            foreach ($postComments as $comment) {
+                if ($comment->user && $comment->post) {
+                    $dedupKey = "comment_{$comment->user->id}_{$comment->post->id}";
+                    if (isset($existingNotificationKeys[$dedupKey])) continue;
+                    $existingNotificationKeys[$dedupKey] = true;
+
+                    $snippet = \Illuminate\Support\Str::limit(strip_tags($comment->post->content), 35) ?: 'منشورك';
+                    $notificationsCollection->push([
+                        'id'          => (string)$comment->id,
+                        'type'        => 'comment',
+                        'title'       => 'تعليق جديد',
+                        'message'     => 'قام ' . $comment->user->first_name . ' بالتعليق على موضوعك: "' . $snippet . '"',
+                        'description' => 'قام ' . $comment->user->first_name . ' بالتعليق على موضوعك: "' . $snippet . '"',
+                        'sender_id'   => (int)$comment->user->id,
+                        'sender_name' => trim($comment->user->first_name . ' ' . $comment->user->last_name),
+                        'avatar'      => $formatAvatar($comment->user->profile_picture),
+                        'post_id'     => (int)$comment->post->id,
+                        'created_at'  => $comment->created_at
+                    ]);
+                }
             }
         }
 
-        // هـ. جلب إشعارات التعليقات القديمة (فقط في حال لم تكن مسجلة مسبقاً)
-        $postComments = Comment::with(['user', 'post'])
-            ->where('is_active', 1)
-            ->where('user_id', '!=', $currentUser->id)
-            ->whereHas('post', function ($query) use ($currentUser) {
-                $query->where('user_id', $currentUser->id);
-            })->get();
+        // هـ. فحص المشاهدات
+        $seenMap = Seen::where('user_id', $currentUser->id)->latest()->limit(500)->pluck('notification_type', 'notification_id')->all();
 
-        foreach ($postComments as $comment) {
-            if ($comment->user && $comment->post) {
-                $dedupKey = "comment_{$comment->user->id}_{$comment->post->id}";
-                if (isset($existingNotificationKeys[$dedupKey])) {
-                    continue; // منع التكرار الجذري
-                }
-                $existingNotificationKeys[$dedupKey] = true;
-
-                $snippet = \Illuminate\Support\Str::limit(strip_tags($comment->post->content), 35) ?: 'منشورك';
-                $notificationsCollection->push([
-                    'id'          => (string)$comment->id,
-                    'type'        => 'comment',
-                    'title'       => 'تعليق جديد',
-                    'message'     => 'قام ' . $comment->user->first_name . ' بالتعليق على موضوعك: "' . $snippet . '"',
-                    'description' => 'قام ' . $comment->user->first_name . ' بالتعليق على موضوعك: "' . $snippet . '"',
-                    'sender_id'   => (int)$comment->user->id,
-                    'sender_name' => trim($comment->user->first_name . ' ' . $comment->user->last_name),
-                    'avatar'      => $formatAvatar($comment->user->profile_picture),
-                    'post_id'     => (int)$comment->post->id,
-                    'created_at'  => $comment->created_at
-                ]);
-            }
-        }
-
-        // و. رصد الفلترة والمطابقة مع جدول الـ seen لمعرفة حالة القراءة
-        $seenItems = Seen::where('user_id', $currentUser->id)->get();
-
-        $finalData = $notificationsCollection->map(function ($item) use ($seenItems) {
+        $finalData = $notificationsCollection->map(function ($item) use ($seenMap) {
             $isSeen = false;
             if (isset($item['is_seen'])) {
                 $isSeen = (bool)$item['is_seen'];
             } elseif (isset($item['read_at'])) {
                 $isSeen = !is_null($item['read_at']);
             } else {
-                $enumType = $item['type'] === 'like' ? 'post_like' : ($item['type'] === 'comment' ? 'post_comment' : 'friend_request');
-                $isSeen = $seenItems->where('notification_id', (string)$item['id'])
-                                    ->where('notification_type', $enumType)
-                                    ->isNotEmpty();
+                $isSeen = isset($seenMap[(string)$item['id']]);
             }
 
             $carbonDate = $item['created_at'] instanceof \Carbon\Carbon
@@ -277,10 +275,7 @@ class MiscApiController extends Controller
             ];
         })->sortByDesc('created_at')->values();
 
-        // حساب عدد الإشعارات غير المقروءة بدقة
         $unseenCount = $finalData->where('is_seen', false)->count();
-
-        // تطبيق الـ Pagination (Limit & Offset)
         $paginatedData = $finalData->slice($offset, $limit)->values();
 
         return response()->json([
@@ -292,9 +287,6 @@ class MiscApiController extends Controller
         ]);
     }
 
-    /**
-     * 6.2 تعيين الإشعار كمقروء
-     */
     public function markSeen(Request $request)
     {
         $currentUser = $request->user();
