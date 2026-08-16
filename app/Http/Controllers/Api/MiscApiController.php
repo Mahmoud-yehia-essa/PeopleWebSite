@@ -135,7 +135,8 @@ class MiscApiController extends Controller
                     'avatar'      => $formatAvatar($data['avatar'] ?? null),
                     'post_id'     => $postId,
                     'created_at'  => \Carbon\Carbon::parse($notif->created_at),
-                    'read_at'     => $notif->read_at
+                    'read_at'     => $notif->read_at,
+                    'is_seen'     => !is_null($notif->read_at)
                 ]);
             }
         }
@@ -237,16 +238,16 @@ class MiscApiController extends Controller
         }
 
         // هـ. فحص المشاهدات
-        $seenMap = Seen::where('user_id', $currentUser->id)->latest()->limit(500)->pluck('notification_type', 'notification_id')->all();
+        $seenNotificationIds = Seen::where('user_id', $currentUser->id)->pluck('notification_id')->flip()->all();
 
-        $finalData = $notificationsCollection->map(function ($item) use ($seenMap) {
+        $finalData = $notificationsCollection->map(function ($item) use ($seenNotificationIds) {
             $isSeen = false;
-            if (isset($item['is_seen'])) {
-                $isSeen = (bool)$item['is_seen'];
-            } elseif (isset($item['read_at'])) {
-                $isSeen = !is_null($item['read_at']);
-            } else {
-                $isSeen = isset($seenMap[(string)$item['id']]);
+            if (isset($item['is_seen']) && $item['is_seen'] === true) {
+                $isSeen = true;
+            } elseif (!empty($item['read_at'])) {
+                $isSeen = true;
+            } elseif (isset($seenNotificationIds[(string)$item['id']])) {
+                $isSeen = true;
             }
 
             $carbonDate = $item['created_at'] instanceof \Carbon\Carbon
@@ -286,6 +287,9 @@ class MiscApiController extends Controller
         ]);
     }
 
+    /**
+     * 6.2 تعيين الإشعار كمقروء
+     */
     public function markSeen(Request $request)
     {
         $currentUser = $request->user();
@@ -297,8 +301,8 @@ class MiscApiController extends Controller
             return response()->json(['success' => false, 'message' => 'Unauthenticated'], 401);
         }
 
-        if ($request->input('mark_all') == true) {
-            // تحديث إشعارات الإدارة في جدول notification_for_apps
+        if ($request->input('mark_all') == true || $request->input('mark_all') === 'true' || $request->input('mark_all') === 1 || $request->input('mark_all') === '1') {
+            // 1. تحديث إشعارات الإدارة في جدول notification_for_apps
             try {
                 NotificationForApp::where(function ($q) use ($currentUser) {
                     $q->where('user_id', $currentUser->id)
@@ -307,40 +311,42 @@ class MiscApiController extends Controller
                 })->update(['user_view' => 'yes']);
             } catch (\Throwable $e) {}
 
-            // تحديث الإشعارات في جدول notifications
+            // 2. تحديث الإشعارات في جدول notifications
             \Illuminate\Support\Facades\DB::table('notifications')
-                ->where('notifiable_type', 'App\\Models\\User')
                 ->where('notifiable_id', $currentUser->id)
+                ->whereNull('read_at')
                 ->update(['read_at' => now()]);
 
-            // تحديث إشعارات الإعجابات
-            $postLikes = Reaction::where('content_type_id', 1)
-                ->where('is_active', 1)
-                ->where('user_id', '!=', $currentUser->id)
-                ->whereHas('post', fn($q) => $q->where('user_id', $currentUser->id))
-                ->pluck('id');
-            foreach ($postLikes as $lId) {
-                Seen::firstOrCreate([
-                    'user_id'           => $currentUser->id,
-                    'notification_id'   => (string)$lId,
-                    'notification_type' => 'post_like'
-                ], ['seen_at' => now()]);
+            // 3. تحديث إشعارات الإعجابات والتعليقات
+            $userPostIds = \App\Models\Post::where('user_id', $currentUser->id)->pluck('id')->all();
+            if (!empty($userPostIds)) {
+                $postLikes = Reaction::where('content_type_id', 1)
+                    ->where('is_active', 1)
+                    ->where('user_id', '!=', $currentUser->id)
+                    ->whereIn('content_id', $userPostIds)
+                    ->pluck('id');
+                foreach ($postLikes as $lId) {
+                    Seen::firstOrCreate([
+                        'user_id'           => $currentUser->id,
+                        'notification_id'   => (string)$lId,
+                        'notification_type' => 'post_like'
+                    ], ['seen_at' => now()]);
+                }
+
+                $postComments = Comment::where('is_active', 1)
+                    ->where('user_id', '!=', $currentUser->id)
+                    ->whereIn('post_id', $userPostIds)
+                    ->pluck('id');
+                foreach ($postComments as $cId) {
+                    Seen::firstOrCreate([
+                        'user_id'           => $currentUser->id,
+                        'notification_id'   => (string)$cId,
+                        'notification_type' => 'post_comment'
+                    ], ['seen_at' => now()]);
+                }
             }
 
-            // تحديث إشعارات التعليقات
-            $postComments = Comment::where('is_active', 1)
-                ->where('user_id', '!=', $currentUser->id)
-                ->whereHas('post', fn($q) => $q->where('user_id', $currentUser->id))
-                ->pluck('id');
-            foreach ($postComments as $cId) {
-                Seen::firstOrCreate([
-                    'user_id'           => $currentUser->id,
-                    'notification_id'   => (string)$cId,
-                    'notification_type' => 'post_comment'
-                ], ['seen_at' => now()]);
-            }
-
-            // تحديث طلبات الصداقة
+            // 4. تحديث طلبات الصداقة
             $friendRequests = Friendship::where('receiver_id', $currentUser->id)
                 ->where('is_active', 0)
                 ->pluck('id');
@@ -369,34 +375,29 @@ class MiscApiController extends Controller
         if (str_starts_with($notifId, 'admin_') || $request->notification_type === 'admin') {
             $rawId = str_replace('admin_', '', $notifId);
             try {
-                NotificationForApp::where('id', $rawId)
-                    ->where(function ($q) use ($currentUser) {
-                        $q->where('user_id', $currentUser->id)
-                          ->orWhereNull('user_id')
-                          ->orWhere('user_id', 0);
-                    })->update(['user_view' => 'yes']);
+                NotificationForApp::where('id', $rawId)->update(['user_view' => 'yes']);
             } catch (\Throwable $e) {}
-
             return response()->json(['success' => true, 'message' => 'Admin notification marked as seen']);
         }
 
-        if (\Illuminate\Support\Str::isUuid($notifId)) {
-            \Illuminate\Support\Facades\DB::table('notifications')
-                ->where('id', $notifId)
-                ->update(['read_at' => now()]);
-        } else {
-            $enumType = 'friend_request';
-            if ($request->notification_type === 'like') $enumType = 'post_like';
-            if ($request->notification_type === 'comment') $enumType = 'post_comment';
+        // تحديث جدول notifications إن وُجد
+        \Illuminate\Support\Facades\DB::table('notifications')
+            ->where('id', $notifId)
+            ->where('notifiable_id', $currentUser->id)
+            ->update(['read_at' => now()]);
 
-            Seen::updateOrCreate([
-                'user_id'           => $currentUser->id,
-                'notification_id'   => (string)$notifId,
-                'notification_type' => $enumType
-            ], [
-                'seen_at'           => now()
-            ]);
-        }
+        // تحديث جدول Seen
+        $enumType = 'friend_request';
+        if (in_array($request->notification_type, ['like', 'post_like'])) $enumType = 'post_like';
+        if (in_array($request->notification_type, ['comment', 'post_comment', 'comment_reply', 'reply_to_reply'])) $enumType = 'post_comment';
+
+        Seen::firstOrCreate([
+            'user_id'           => $currentUser->id,
+            'notification_id'   => (string)$notifId,
+            'notification_type' => $enumType
+        ], [
+            'seen_at'           => now()
+        ]);
 
         return response()->json([
             'success' => true,
@@ -404,11 +405,6 @@ class MiscApiController extends Controller
         ]);
     }
 
-    
-    
-    /**
-     * توليد تنويعات الكلمات العربية (ى/ي، أ/إ/آ/ا، ة/ه) لتحسين دقة البحث
-     */
     private function getArabicVariations($query)
     {
         $variations = [$query];
