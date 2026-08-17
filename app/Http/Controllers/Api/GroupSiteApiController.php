@@ -1147,5 +1147,110 @@ class GroupSiteApiController extends Controller
             ], 500);
         }
     }
+    /**
+     * تعديل موضوع داخل مجموعة
+     */
+    public function updateSubject(Request $request)
+    {
+        $currentUser = null;
+        try {
+            $currentUser = auth('sanctum')->user();
+        } catch (\Exception $e) {}
+        if (!$currentUser && $request->input('user_id')) {
+            $currentUser = User::find($request->input('user_id'));
+        }
+
+        if (!$currentUser) {
+            return response()->json(['success' => false, 'message' => 'المستخدم غير مسجل'], 401);
+        }
+
+        $subjectId = $request->input('subject_id') ?? $request->input('id');
+        if (!$subjectId) {
+            return response()->json(['success' => false, 'message' => 'معرف الموضوع مطلوب'], 422);
+        }
+
+        $subject = GroupSubject::find($subjectId);
+        if (!$subject) {
+            return response()->json(['success' => false, 'message' => 'الموضوع غير موجود'], 404);
+        }
+
+        $group = $subject->groupSite;
+
+        // التحقق من الصلاحية: صاحب الموضوع فقط أو مدير المجموعة
+        $canEdit = ((int)$subject->user_id === (int)$currentUser->id) || ($group && (int)$group->admin_user_id === (int)$currentUser->id);
+        if (!$canEdit) {
+            return response()->json(['success' => false, 'message' => 'غير مصرح لك بتعديل هذا الموضوع.'], 403);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'title'       => 'nullable|string|max:255',
+            'description' => 'nullable|string',
+            'attachment'  => 'nullable|file|mimes:jpeg,png,jpg,gif,mp4,mov,avi|max:10240',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['success' => false, 'message' => $validator->errors()->first()], 422);
+        }
+
+        if ($request->has('title')) {
+            $subject->title = $request->input('title') ?? '';
+        }
+        if ($request->has('description')) {
+            $subject->description = $request->input('description') ?? '';
+        }
+
+        // حذف المرفق القديم إذا طُلب ذلك أو تم رفع مرفق جديد
+        if ($request->input('remove_attachment') == '1' || $request->hasFile('attachment')) {
+            if ($subject->attachment_path && !filter_var($subject->attachment_path, FILTER_VALIDATE_URL)) {
+                $oldPath1 = public_path('upload/group_site_subjects/' . $subject->attachment_path);
+                $oldPath2 = public_path('upload/group_subjects/' . $subject->attachment_path);
+                if (File::exists($oldPath1)) {
+                    File::delete($oldPath1);
+                }
+                if (File::exists($oldPath2)) {
+                    File::delete($oldPath2);
+                }
+            }
+            if ($request->input('remove_attachment') == '1' && !$request->hasFile('attachment')) {
+                $subject->attachment_path = null;
+                $subject->attachment_type = 'none';
+            }
+        }
+
+        if ($request->hasFile('attachment')) {
+            $file = $request->file('attachment');
+            $ext = strtolower($file->getClientOriginalExtension());
+            $filename = date('YmdHis') . '_' . uniqid() . '.' . $ext;
+            $file->move(public_path('upload/group_site_subjects'), $filename);
+
+            $subject->attachment_path = $filename;
+            $subject->attachment_type = in_array($ext, ['mp4', 'mov', 'avi']) ? 'video' : 'image';
+        }
+
+        $subject->save();
+        if (method_exists($subject, 'syncHashtags')) {
+            $subject->syncHashtags();
+        }
+
+        // بناء مسار المرفق المحدث للرد
+        $attachmentUrl = null;
+        if ($subject->attachment_path) {
+            $attachmentUrl = filter_var($subject->attachment_path, FILTER_VALIDATE_URL) 
+                ? $subject->attachment_path 
+                : asset('upload/group_site_subjects/' . $subject->attachment_path);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'تم تعديل الموضوع بنجاح',
+            'subject' => [
+                'id'              => (int)$subject->id,
+                'title'           => $subject->title,
+                'description'     => $subject->description,
+                'attachment_path' => $attachmentUrl,
+                'attachment_type' => $subject->attachment_type,
+            ]
+        ]);
+    }
 }
 
