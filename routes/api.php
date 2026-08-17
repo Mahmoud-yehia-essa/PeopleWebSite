@@ -130,21 +130,20 @@ Route::middleware('auth:sanctum')->group(function () {
 
 
 
-// 4. روابط جلب القصص اليومية (متاحة بالمصادقة أو بمعرف المستخدم)
-Route::match(['get', 'post'], 'story/list.php', [StoryApiController::class, 'listStories']);
-Route::match(['get', 'post'], 'story/list_stories.php', [StoryApiController::class, 'listStories']);
+// 4. روابط القصص اليومية (Stories - تدعم التوكن أو معرّف المستخدم)
+Route::prefix('story')->group(function () {
+    Route::match(['get', 'post'], 'list.php', [StoryApiController::class, 'listStories']);
+    Route::match(['get', 'post'], 'list_stories.php', [StoryApiController::class, 'listStories']);
+    Route::match(['get', 'post'], 'seen.php', [StoryApiController::class, 'markAsSeen']);
+    Route::match(['get', 'post'], 'mark_as_seen.php', [StoryApiController::class, 'markAsSeen']);
+    Route::match(['get', 'post'], 'add_story.php', [StoryApiController::class, 'addStory']);
+    Route::match(['get', 'post'], 'viewers.php', [StoryApiController::class, 'getStoryViewers']);
+    Route::match(['get', 'post'], 'delete_story.php', [StoryApiController::class, 'deleteStory']);
+    Route::match(['get', 'post'], 'delete.php', [StoryApiController::class, 'deleteStory']);
+});
 Route::match(['get', 'post'], 'friend/action.php', [FriendApiController::class, 'friendAction']);
 
 Route::middleware('auth:sanctum')->group(function () {
-    // 4. روابط القصص اليومية (Stories)
-    Route::prefix('story')->group(function () {
-        Route::match(['get', 'post'], 'seen.php', [StoryApiController::class, 'markAsSeen']);
-        Route::match(['get', 'post'], 'mark_as_seen.php', [StoryApiController::class, 'markAsSeen']);
-        Route::match(['get', 'post'], 'add_story.php', [StoryApiController::class, 'addStory']);
-        Route::match(['get', 'post'], 'viewers.php', [StoryApiController::class, 'getStoryViewers']);
-        Route::match(['get', 'post'], 'delete_story.php', [StoryApiController::class, 'deleteStory']);
-        Route::match(['get', 'post'], 'delete.php', [StoryApiController::class, 'deleteStory']);
-    });
 
     // 4.5 روابط مجموعات الموقع - العمليات التي تتطلب مصادقة (Group Sites - Auth Required)
     Route::prefix('group_sites')->group(function () {

@@ -23,6 +23,9 @@ class Story extends Model
 {
     use HasFactory;
 
+    // الجدول يحتوي فقط على created_at ولا يحتوي على updated_at
+    public const UPDATED_AT = null;
+
     /**
      * القصة تنتمي إلى المستخدم الذي قام بنشرها
      */

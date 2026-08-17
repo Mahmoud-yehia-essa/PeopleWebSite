@@ -200,9 +200,9 @@ class StoryApiController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'content' => 'nullable|string|max:500',
-            'media'   => 'nullable|file|mimes:jpg,jpeg,png,gif,mp4,mov,avi|max:25600',
-            'image'   => 'nullable|file|mimes:jpg,jpeg,png,gif|max:10240',
-            'video'   => 'nullable|file|mimes:mp4,mov,avi|max:25600',
+            'media'   => 'nullable|file|max:51200',
+            'image'   => 'nullable|file|max:51200',
+            'video'   => 'nullable|file|max:51200',
         ]);
 
         if ($validator->fails()) {
@@ -232,21 +232,20 @@ class StoryApiController extends Controller
 
             $file = $request->file('media') ?? $request->file('image') ?? $request->file('video');
             if ($file) {
-                $mimeType = $file->getMimeType();
-                $isImage = str_contains($mimeType, 'image');
+                $mimeType = $file->getMimeType() ?: '';
+                $clientExt = strtolower($file->getClientOriginalExtension() ?: '');
+                $isVideo = str_contains($mimeType, 'video') || in_array($clientExt, ['mp4', 'mov', 'avi', 'mkv', 'webm', '3gp', 'm4v']);
 
                 $destinationPath = public_path('upload/stories');
                 if (!file_exists($destinationPath)) {
                     mkdir($destinationPath, 0777, true);
                 }
 
-                $extension = $file->getClientOriginalExtension() ?: ($isImage ? 'jpg' : 'mp4');
+                $extension = $clientExt ?: ($isVideo ? 'mp4' : 'jpg');
                 $filename = date('YmdHis') . '_' . uniqid() . '.' . $extension;
                 $file->move($destinationPath, $filename);
 
-                if ($isImage) {
-                    $story->image = $filename;
-                } else {
+                if ($isVideo) {
                     $story->video = $filename;
 
                     // Generate thumbnail from first part of video
@@ -263,6 +262,8 @@ class StoryApiController extends Controller
                             }
                         }
                     }
+                } else {
+                    $story->image = $filename;
                 }
             }
 
@@ -294,6 +295,7 @@ class StoryApiController extends Controller
                 ]
             ]);
         } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Failed to save story: ' . $e->getMessage() . ' Trace: ' . $e->getTraceAsString());
             return response()->json(['success' => false, 'message' => 'Failed to save story: ' . $e->getMessage()], 500);
         }
     }

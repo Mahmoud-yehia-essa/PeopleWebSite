@@ -22,6 +22,9 @@ class StorySeen extends Model
     // تحديد اسم الجدول المخصص في قاعدة البيانات
     protected $table = 'story_seen';
 
+    // الجدول لا يحتوي على created_at / updated_at الافتراضية
+    public $timestamps = false;
+
     /**
      * المشاهدة تنتمي لقصة محددة
      */
