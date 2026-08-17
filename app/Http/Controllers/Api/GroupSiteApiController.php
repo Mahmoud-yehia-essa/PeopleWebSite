@@ -1252,5 +1252,137 @@ class GroupSiteApiController extends Controller
             ]
         ]);
     }
+    /**
+     * حذف تعليق أو رد على موضوع في مجموعة
+     */
+    public function deleteSubjectComment(Request $request)
+    {
+        $currentUser = null;
+        try {
+            $currentUser = auth('sanctum')->user();
+        } catch (\Exception $e) {}
+        if (!$currentUser && $request->input('user_id')) {
+            $currentUser = User::find($request->input('user_id'));
+        }
+
+        if (!$currentUser) {
+            return response()->json(['success' => false, 'message' => 'المستخدم غير مسجل'], 401);
+        }
+
+        $commentId = $request->input('comment_id') ?? $request->input('id');
+        if (!$commentId) {
+            return response()->json(['success' => false, 'message' => 'معرف التعليق مطلوب'], 422);
+        }
+
+        $comment = GroupSiteComment::find($commentId);
+        if (!$comment) {
+            return response()->json(['success' => false, 'message' => 'التعليق غير موجود أو تم حذفه مسبقاً'], 404);
+        }
+
+        $subject = $comment->subject;
+        $group = $subject ? $subject->groupSite : null;
+
+        // التحقق من الصلاحية: صاحب التعليق أو صاحب الموضوع أو مدير المجموعة
+        $canDelete = ((int)$comment->user_id === (int)$currentUser->id)
+            || ($subject && (int)$subject->user_id === (int)$currentUser->id)
+            || ($group && (int)$group->admin_user_id === (int)$currentUser->id);
+
+        if (!$canDelete) {
+            return response()->json(['success' => false, 'message' => 'غير مصرح لك بحذف هذا التعليق.'], 403);
+        }
+
+        try {
+            $subjectId = $comment->group_subject_id;
+            $parentId = (int)$comment->parent_id;
+
+            // حذف تفاعلات التعليق
+            Reaction::where('content_id', $commentId)
+                ->whereIn('content_type_id', [3, 4])
+                ->delete();
+
+            // إذا كان تعليق رئيسي، نحذف كافة الردود وتفاعلاتها
+            if ($parentId === 0) {
+                $replyIds = GroupSiteComment::where('parent_id', $commentId)->pluck('id');
+                if ($replyIds->isNotEmpty()) {
+                    Reaction::whereIn('content_id', $replyIds)
+                        ->whereIn('content_type_id', [3, 4])
+                        ->delete();
+                    GroupSiteComment::where('parent_id', $commentId)->delete();
+                }
+            } else {
+                // إذا كان رد، ننقص عدد الردود من التعليق الأب
+                GroupSiteComment::where('id', $parentId)->where('reply_count', '>', 0)->decrement('reply_count');
+            }
+
+            $comment->delete();
+
+            $totalComments = GroupSiteComment::where('group_subject_id', $subjectId)->count();
+
+            return response()->json([
+                'success'        => true,
+                'message'        => 'تم حذف التعليق بنجاح',
+                'comments_count' => $totalComments,
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'حدث خطأ أثناء حذف التعليق: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * تعديل تعليق أو رد على موضوع في مجموعة
+     */
+    public function updateSubjectComment(Request $request)
+    {
+        $currentUser = null;
+        try {
+            $currentUser = auth('sanctum')->user();
+        } catch (\Exception $e) {}
+        if (!$currentUser && $request->input('user_id')) {
+            $currentUser = User::find($request->input('user_id'));
+        }
+
+        if (!$currentUser) {
+            return response()->json(['success' => false, 'message' => 'المستخدم غير مسجل'], 401);
+        }
+
+        $commentId = $request->input('comment_id') ?? $request->input('id');
+        $content = trim($request->input('content', ''));
+
+        if (!$commentId || empty($content)) {
+            return response()->json(['success' => false, 'message' => 'يرجى إدخال نص التعليق'], 422);
+        }
+
+        $comment = GroupSiteComment::find($commentId);
+        if (!$comment) {
+            return response()->json(['success' => false, 'message' => 'التعليق غير موجود'], 404);
+        }
+
+        // التحقق من الصلاحية: صاحب التعليق فقط
+        if ((int)$comment->user_id !== (int)$currentUser->id) {
+            return response()->json(['success' => false, 'message' => 'غير مصرح لك بتعديل هذا التعليق.'], 403);
+        }
+
+        try {
+            $comment->content = $content;
+            $comment->save();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'تم تعديل التعليق بنجاح',
+                'comment' => [
+                    'id'      => (int)$comment->id,
+                    'content' => $comment->content,
+                ]
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'حدث خطأ أثناء تعديل التعليق: ' . $e->getMessage()
+            ], 500);
+        }
+    }
 }
 

@@ -157,6 +157,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::match(['get', 'post'], 'update_subject.php', [GroupSiteApiController::class, 'updateSubject']);
         Route::match(['get', 'post'], 'toggle_reaction.php', [GroupSiteApiController::class, 'toggleSubjectReaction']);
         Route::match(['get', 'post'], 'add_comment.php', [GroupSiteApiController::class, 'addSubjectComment']);
+        Route::match(['get', 'post'], 'delete_comment.php', [GroupSiteApiController::class, 'deleteSubjectComment']);
+        Route::match(['get', 'post'], 'update_comment.php', [GroupSiteApiController::class, 'updateSubjectComment']);
         Route::match(['get', 'post'], 'react_comment.php', [GroupSiteApiController::class, 'reactSubjectComment']);
         Route::match(['get', 'post'], 'remove_member.php', [GroupSiteApiController::class, 'removeGroupMember']);
     });
@@ -176,6 +178,8 @@ Route::prefix('group_sites')->group(function () {
     Route::match(['get', 'post'], 'list_groups.php', [GroupSiteApiController::class, 'listGroups']);
     Route::match(['get', 'post'], 'details.php', [GroupSiteApiController::class, 'getGroupDetails']);
     Route::match(['get', 'post'], 'comments.php', [GroupSiteApiController::class, 'getSubjectComments']);
+    Route::match(['get', 'post'], 'delete_comment.php', [GroupSiteApiController::class, 'deleteSubjectComment']);
+    Route::match(['get', 'post'], 'update_comment.php', [GroupSiteApiController::class, 'updateSubjectComment']);
     Route::match(['get', 'post'], 'comment_reactions.php', [GroupSiteApiController::class, 'getCommentReactions']);
     Route::match(['get', 'post'], 'subject_reactions.php', [GroupSiteApiController::class, 'getSubjectReactions']);
     Route::match(['get', 'post'], 'members.php', [GroupSiteApiController::class, 'getGroupMembers']);
