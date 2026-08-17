@@ -16,13 +16,15 @@ class MessageDeleted implements ShouldBroadcastNow
     public ?int $receiverId;
     public ?int $senderId;
     public ?int $groupId;
+    public array $memberIds;
 
-    public function __construct(int $messageId, ?int $receiverId = null, ?int $senderId = null, ?int $groupId = null)
+    public function __construct(int $messageId, ?int $receiverId = null, ?int $senderId = null, ?int $groupId = null, array $memberIds = [])
     {
         $this->messageId  = $messageId;
         $this->receiverId = $receiverId;
         $this->senderId   = $senderId;
         $this->groupId    = $groupId;
+        $this->memberIds  = $memberIds;
     }
 
     public function broadcastOn(): array
@@ -30,14 +32,23 @@ class MessageDeleted implements ShouldBroadcastNow
         $channels = [];
         if ($this->receiverId) {
             $channels[] = new PrivateChannel('chat.' . $this->receiverId);
+            $channels[] = new PrivateChannel('private-chat.' . $this->receiverId);
         }
         if ($this->senderId) {
             $channels[] = new PrivateChannel('chat.' . $this->senderId);
+            $channels[] = new PrivateChannel('private-chat.' . $this->senderId);
         }
         if ($this->groupId) {
             $channels[] = new PrivateChannel('chat.group.' . $this->groupId);
+            $channels[] = new PrivateChannel('group.' . $this->groupId);
         }
-        return $channels;
+        if (!empty($this->memberIds)) {
+            foreach ($this->memberIds as $mId) {
+                $channels[] = new PrivateChannel('chat.' . $mId);
+                $channels[] = new PrivateChannel('private-chat.' . $mId);
+            }
+        }
+        return array_values(array_unique($channels));
     }
 
     public function broadcastAs(): string
@@ -56,3 +67,4 @@ class MessageDeleted implements ShouldBroadcastNow
         ];
     }
 }
+

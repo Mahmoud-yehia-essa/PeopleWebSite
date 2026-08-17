@@ -452,6 +452,15 @@ class ChatController extends Controller
         $senderId   = (int) $message->sender_id;
         $groupId    = $message->group_id ? (int) $message->group_id : null;
 
+        $memberIds = [];
+        if ($groupId) {
+            $memberIds = \App\Models\GroupMember::where('group_id', $groupId)
+                ->where('is_active', 1)
+                ->pluck('user_id')
+                ->map(fn($id) => (int)$id)
+                ->toArray();
+        }
+
         // Delete attached media files from disk
         foreach (['image', 'video', 'audio'] as $field) {
             if ($message->$field) {
@@ -466,7 +475,7 @@ class ChatController extends Controller
 
         // Broadcast deletion in real time safely
         try {
-            event(new MessageDeleted((int) $messageId, $receiverId, $senderId, $groupId));
+            event(new MessageDeleted((int) $messageId, $receiverId, $senderId, $groupId, $memberIds));
         } catch (\Throwable $e) {
             \Illuminate\Support\Facades\Log::warning('Broadcast error in deleteMessage: ' . $e->getMessage());
         }
