@@ -448,8 +448,9 @@ class ChatController extends Controller
             return response()->json(['status' => 'error', 'message' => 'غير مسموح لك بحذف هذه الرسالة.'], 403);
         }
 
-        $receiverId = (int) $message->receiver_id;
+        $receiverId = $message->receiver_id ? (int) $message->receiver_id : null;
         $senderId   = (int) $message->sender_id;
+        $groupId    = $message->group_id ? (int) $message->group_id : null;
 
         // Delete attached media files from disk
         foreach (['image', 'video', 'audio'] as $field) {
@@ -463,9 +464,9 @@ class ChatController extends Controller
 
         $message->delete();
 
-        // Broadcast deletion to both receiver and sender in real time safely
+        // Broadcast deletion in real time safely
         try {
-            event(new MessageDeleted((int) $messageId, $receiverId, $senderId));
+            event(new MessageDeleted((int) $messageId, $receiverId, $senderId, $groupId));
         } catch (\Throwable $e) {
             \Illuminate\Support\Facades\Log::warning('Broadcast error in deleteMessage: ' . $e->getMessage());
         }
