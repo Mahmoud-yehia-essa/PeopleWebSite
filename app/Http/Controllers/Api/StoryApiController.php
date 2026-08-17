@@ -258,8 +258,11 @@ class StoryApiController extends Controller
                         foreach ($ffmpegPaths as $ffmpeg) {
                             try {
                                 if ($ffmpeg === 'ffmpeg' || (file_exists($ffmpeg) && is_executable($ffmpeg))) {
-                                    @\exec("{$ffmpeg} -ss 00:00:00.500 -i " . escapeshellarg($videoPath) . " -vframes 1 -q:v 2 " . escapeshellarg($thumbPath) . " 2>&1");
-                                    if (file_exists($thumbPath)) {
+                                    @\exec("{$ffmpeg} -y -i " . escapeshellarg($videoPath) . " -ss 00:00:00.200 -vframes 1 -q:v 2 " . escapeshellarg($thumbPath) . " 2>&1");
+                                    if (!file_exists($thumbPath) || filesize($thumbPath) === 0) {
+                                        @\exec("{$ffmpeg} -y -i " . escapeshellarg($videoPath) . " -vframes 1 -q:v 2 " . escapeshellarg($thumbPath) . " 2>&1");
+                                    }
+                                    if (file_exists($thumbPath) && filesize($thumbPath) > 0) {
                                         $story->image = $thumbFilename;
                                         break;
                                     }
