@@ -248,17 +248,24 @@ class StoryApiController extends Controller
                 if ($isVideo) {
                     $story->video = $filename;
 
-                    // Generate thumbnail from first part of video
+                    // Generate thumbnail from first part of video (fail-safe)
                     $thumbFilename = pathinfo($filename, PATHINFO_FILENAME) . '_thumb.jpg';
                     $videoPath = $destinationPath . '/' . $filename;
                     $thumbPath = $destinationPath . '/' . $thumbFilename;
-                    $ffmpegPaths = ['/opt/homebrew/bin/ffmpeg', '/usr/local/bin/ffmpeg', '/usr/bin/ffmpeg', 'ffmpeg'];
-                    foreach ($ffmpegPaths as $ffmpeg) {
-                        if (file_exists($ffmpeg) || $ffmpeg === 'ffmpeg') {
-                            @exec("{$ffmpeg} -ss 00:00:00.500 -i " . escapeshellarg($videoPath) . " -vframes 1 -q:v 2 " . escapeshellarg($thumbPath) . " 2>&1");
-                            if (file_exists($thumbPath)) {
-                                $story->image = $thumbFilename;
-                                break;
+                    
+                    if (function_exists('exec')) {
+                        $ffmpegPaths = ['/opt/homebrew/bin/ffmpeg', '/usr/local/bin/ffmpeg', '/usr/bin/ffmpeg', 'ffmpeg'];
+                        foreach ($ffmpegPaths as $ffmpeg) {
+                            try {
+                                if ($ffmpeg === 'ffmpeg' || (file_exists($ffmpeg) && is_executable($ffmpeg))) {
+                                    @\exec("{$ffmpeg} -ss 00:00:00.500 -i " . escapeshellarg($videoPath) . " -vframes 1 -q:v 2 " . escapeshellarg($thumbPath) . " 2>&1");
+                                    if (file_exists($thumbPath)) {
+                                        $story->image = $thumbFilename;
+                                        break;
+                                    }
+                                }
+                            } catch (\Throwable $th) {
+                                // ignore thumbnail generation errors safely
                             }
                         }
                     }
