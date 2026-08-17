@@ -302,6 +302,48 @@ class FcmNotificationService
     }
 
     /**
+     * إرسال إشعار إنهاء مكالمة (Call Ended) بدون صوت تنبيهي لتحديث الواجهة وإغلاق الشاشة فوراً
+     */
+    public function sendCallEndNotification($targetUserId, string $channelName, int $senderId = 0): array
+    {
+        $user = is_object($targetUserId) ? $targetUserId : User::find($targetUserId);
+        if (!$user || empty($user->token)) {
+            return ['success_count' => 0, 'failure_count' => 0];
+        }
+
+        $stringData = [
+            'type'         => 'call_ended',
+            'channel_name' => (string)$channelName,
+            'sender_id'    => (string)$senderId,
+            'click_action' => 'FLUTTER_NOTIFICATION_CLICK',
+        ];
+
+        try {
+            $messaging = Firebase::messaging();
+            $message = CloudMessage::withTarget('token', $user->token)
+                ->withData($stringData)
+                ->withAndroidConfig(AndroidConfig::fromArray([
+                    'priority' => 'high',
+                ]))
+                ->withApnsConfig(ApnsConfig::fromArray([
+                    'headers' => [
+                        'apns-priority' => '10',
+                    ],
+                    'payload' => [
+                        'aps' => [
+                            'content-available' => 1,
+                        ],
+                    ],
+                ]));
+
+            $messaging->send($message);
+            return ['success_count' => 1, 'failure_count' => 0];
+        } catch (\Throwable $e) {
+            return ['success_count' => 0, 'failure_count' => 1, 'error' => $e->getMessage()];
+        }
+    }
+
+    /**
      * حساب إجمالي الإشعارات غير المقروءة لمستخدم
      */
     public function calculateUserUnreadCount(int $userId): int

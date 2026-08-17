@@ -183,20 +183,34 @@ class CallController extends Controller
     {
         $caller = $this->resolveCaller($request);
         $targetUserId = (int) ($request->target_user_id ?? $request->targetUserId ?? $request->input('target_user_id') ?? $request->input('targetUserId'));
-        $channelName = $request->channel_name ?? $request->channelName ?? $request->input('channel_name');
+        $channelName = $request->channel_name ?? $request->channelName ?? $request->input('channel_name') ?? '';
         $currentUserId = $caller ? (int)$caller->id : (auth('sanctum')->id() ?? Auth::id());
 
-        if (!$targetUserId && $channelName && str_starts_with($channelName, 'call_')) {
+        if (!$targetUserId && $channelName) {
             $parts = explode('_', $channelName);
             if (count($parts) >= 3) {
                 $id1 = (int) $parts[1];
                 $id2 = (int) $parts[2];
-                $targetUserId = ($id1 === (int) $currentUserId) ? $id2 : $id1;
+                if ($currentUserId) {
+                    $targetUserId = ($id1 === (int) $currentUserId) ? $id2 : $id1;
+                } else {
+                    $targetUserId = $id1 ?: $id2;
+                }
             }
         }
 
         if ($targetUserId && $channelName) {
             broadcast(new CallEnded($targetUserId, $channelName));
+            if ($currentUserId && (int)$currentUserId !== (int)$targetUserId) {
+                broadcast(new CallEnded($currentUserId, $channelName));
+            }
+            try {
+                app(\App\Services\FcmNotificationService::class)->sendCallEndNotification(
+                    $targetUserId,
+                    $channelName,
+                    (int)$currentUserId
+                );
+            } catch (\Throwable $e) {}
         }
 
         return response()->json(['status' => 'success']);
