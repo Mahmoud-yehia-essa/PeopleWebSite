@@ -61,24 +61,8 @@ class RegisteredUserController extends Controller
             'is_active' => 1,
         ]);
 
-        // تسجيل تتبع الإحالة في حال وجود كود أفيليت بالجلسة
-        if (session()->has('affiliate_ref')) {
-            $code = session('affiliate_ref');
-            $link = \App\Models\AffiliateLink::where('code', $code)->where('is_active', true)->first();
-            if ($link) {
-                $exists = \App\Models\AffiliateTracking::where('affiliate_link_id', $link->id)
-                    ->where('registered_user_id', $user->id)
-                    ->exists();
-                if (!$exists) {
-                    \App\Models\AffiliateTracking::create([
-                        'affiliate_link_id' => $link->id,
-                        'registered_user_id' => $user->id,
-                        'ip_address' => $request->ip(),
-                    ]);
-                }
-            }
-            session()->forget('affiliate_ref');
-        }
+        // معالجة مكافأة الإحالة وزيادة نقاط المسوق ديناميكياً
+        \App\Http\Controllers\AffiliateController::processReferralReward($user, session('affiliate_ref'), $request->ip());
 
         event(new Registered($user));
 

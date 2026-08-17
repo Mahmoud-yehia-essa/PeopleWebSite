@@ -84,24 +84,8 @@ class FacebookController extends Controller
 
             Auth::login($user, true);
 
-            // التحقق من تتبع الإحالة إن وجد بالجلسة
-            if (session()->has('affiliate_ref')) {
-                $code = session('affiliate_ref');
-                $link = \App\Models\AffiliateLink::where('code', $code)->where('is_active', true)->first();
-                if ($link) {
-                    $exists = \App\Models\AffiliateTracking::where('affiliate_link_id', $link->id)
-                        ->where('registered_user_id', $user->id)
-                        ->exists();
-                    if (!$exists) {
-                        \App\Models\AffiliateTracking::create([
-                            'affiliate_link_id' => $link->id,
-                            'registered_user_id' => $user->id,
-                            'ip_address' => request()->ip(),
-                        ]);
-                    }
-                }
-                session()->forget('affiliate_ref');
-            }
+            // معالجة مكافأة الإحالة وزيادة نقاط المسوق
+            \App\Http\Controllers\AffiliateController::processReferralReward($user, session('affiliate_ref'), request()->ip());
 
             $targetRoute = ($user->role === 'admin' || $user->role === 'owner') 
                 ? route('dashboard') 

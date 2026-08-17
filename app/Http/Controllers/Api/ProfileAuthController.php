@@ -78,6 +78,10 @@ class ProfileAuthController extends Controller
         }
 
         // توليد الـ Access Token الجديد عبر Sanctum لتأمين الجلسة
+        // معالجة مكافأة الإحالة وزيادة نقاط المسوق
+        $refCode = $request->referral_code ?? $request->ref ?? session('affiliate_ref');
+        \App\Http\Controllers\AffiliateController::processReferralReward($user, $refCode, $request->ip());
+
         $accessToken = $user->createToken('WiselookAuthToken')->plainTextToken;
 
         return response()->json([
@@ -352,24 +356,9 @@ class ProfileAuthController extends Controller
             ]);
         }
 
-        // التحقق من تتبع الإحالة (Affiliate Tracking) إن وجد بالجلسة
-        if (session()->has('affiliate_ref')) {
-            $code = session('affiliate_ref');
-            $link = \App\Models\AffiliateLink::where('code', $code)->where('is_active', true)->first();
-            if ($link) {
-                $exists = \App\Models\AffiliateTracking::where('affiliate_link_id', $link->id)
-                    ->where('registered_user_id', $user->id)
-                    ->exists();
-                if (!$exists) {
-                    \App\Models\AffiliateTracking::create([
-                        'affiliate_link_id' => $link->id,
-                        'registered_user_id' => $user->id,
-                        'ip_address' => request()->ip(),
-                    ]);
-                }
-            }
-            session()->forget('affiliate_ref');
-        }
+        // معالجة مكافأة الإحالة وزيادة نقاط المسوق
+        $refCode = $request->referral_code ?? $request->ref ?? session('affiliate_ref');
+        \App\Http\Controllers\AffiliateController::processReferralReward($user, $refCode, $request->ip());
 
         $accessToken = $user->createToken('WiselookAuthToken')->plainTextToken;
 

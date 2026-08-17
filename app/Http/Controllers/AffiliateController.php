@@ -5,8 +5,10 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use App\Models\AffiliateLink;
 use App\Models\AffiliateTracking;
+use App\Models\AffiliateSetting;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class AffiliateController extends Controller
 {
@@ -56,7 +58,9 @@ class AffiliateController extends Controller
         // جلب المستخدمين الذين لا يملكون رابط إحالة حالياً
         $userIdsWithLinks = AffiliateLink::pluck('user_id')->toArray();
         $users = User::whereNotIn('id', $userIdsWithLinks)
-            ->where('status', 'active')
+            ->where(function($q) {
+                $q->where('status', 1)->orWhere('status', 'active');
+            })
             ->orderBy('first_name')
             ->get();
 
@@ -230,6 +234,45 @@ class AffiliateController extends Controller
     }
 
     /**
+     * شاشة إعدادات نقاط المكافأة للأفيليت في لوحة التحكم
+     */
+    public function affiliateSettings()
+    {
+        $settings = AffiliateSetting::getSettings();
+        return view('admin.affiliate.affiliate_settings', compact('settings'));
+    }
+
+    /**
+     * تحديث إعدادات نقاط المكافأة من لوحة التحكم
+     */
+    public function updateAffiliateSettings(Request $request)
+    {
+        $request->validate([
+            'reward_points_per_referral' => 'required|integer|min:0',
+            'min_points_silver_rank'     => 'required|integer|min:1',
+            'min_points_gold_rank'       => 'required|integer|min:1',
+        ], [
+            'reward_points_per_referral.required' => 'يرجى تحديد نقاط المكافأة لكل تسجيل.',
+            'min_points_silver_rank.required'     => 'يرجى تحديد الحد الأدنى لرتبة سفير فضي.',
+            'min_points_gold_rank.required'       => 'يرجى تحديد الحد الأدنى لرتبة سفير ذهبي.',
+        ]);
+
+        $settings = AffiliateSetting::getSettings();
+        $settings->reward_points_per_referral = (int)$request->reward_points_per_referral;
+        $settings->min_points_silver_rank     = (int)$request->min_points_silver_rank;
+        $settings->min_points_gold_rank       = (int)$request->min_points_gold_rank;
+        $settings->is_affiliate_enabled       = $request->has('is_affiliate_enabled') ? true : false;
+        $settings->save();
+
+        $notification = [
+            'message' => 'تم حفظ إعدادات نقاط المكافأة والتسويق بالعمولة بنجاح.',
+            'alert-type' => 'success'
+        ];
+
+        return redirect()->back()->with($notification);
+    }
+
+    /**
      * عرض صفحة سفراء الحكمة للواجهة الأمامية للمستخدم الحالي
      */
     public function frontendAmbassadors()
@@ -254,13 +297,18 @@ class AffiliateController extends Controller
         $trackingsQuery = AffiliateTracking::where('affiliate_link_id', $link->id);
         $referralsCount = $trackingsQuery->count();
 
-        // حساب نقاط المكافأة (على سبيل المثال: 50 نقطة لكل دعوة ناجحة)
-        $rewardPoints = $referralsCount * 50;
+        // حساب نقاط المكافأة ديناميكياً من إعدادات لوحة التحكم
+        $settings = AffiliateSetting::getSettings();
+        $pointsPerReferral = (int)($settings->reward_points_per_referral ?? 50);
+        $rewardPoints = $referralsCount * $pointsPerReferral;
 
-        // رتبة السفير
-        if ($referralsCount >= 20) {
+        // رتبة السفير ديناميكياً
+        $silverReq = (int)($settings->min_points_silver_rank ?? 5);
+        $goldReq = (int)($settings->min_points_gold_rank ?? 20);
+
+        if ($referralsCount >= $goldReq) {
             $rank = 'سفير ذهبي';
-        } elseif ($referralsCount >= 5) {
+        } elseif ($referralsCount >= $silverReq) {
             $rank = 'سفير فضي';
         } else {
             $rank = 'سفير برونزي';
@@ -279,7 +327,8 @@ class AffiliateController extends Controller
             'referralsCount',
             'rewardPoints',
             'rank',
-            'recentReferrals'
+            'recentReferrals',
+            'pointsPerReferral'
         ));
     }
 
@@ -361,12 +410,19 @@ class AffiliateController extends Controller
         // الإحصائيات
         $clicksCount = (int)($link->clicks ?: 0);
         $referralsCount = (int)AffiliateTracking::where('affiliate_link_id', $link->id)->count();
-        $rewardPoints = $referralsCount * 50;
 
-        // رتبة السفير
-        if ($referralsCount >= 20) {
+        // حساب نقاط المكافأة ديناميكياً من إعدادات لوحة التحكم
+        $settings = AffiliateSetting::getSettings();
+        $pointsPerReferral = (int)($settings->reward_points_per_referral ?? 50);
+        $rewardPoints = $referralsCount * $pointsPerReferral;
+
+        // رتبة السفير ديناميكياً
+        $silverReq = (int)($settings->min_points_silver_rank ?? 5);
+        $goldReq = (int)($settings->min_points_gold_rank ?? 20);
+
+        if ($referralsCount >= $goldReq) {
             $rank = 'سفير ذهبي';
-        } elseif ($referralsCount >= 5) {
+        } elseif ($referralsCount >= $silverReq) {
             $rank = 'سفير فضي';
         } else {
             $rank = 'سفير برونزي';
@@ -416,6 +472,8 @@ class AffiliateController extends Controller
                 'clicks' => $clicksCount,
                 'referrals_count' => $referralsCount,
                 'reward_points' => $rewardPoints,
+                'points_per_referral' => $pointsPerReferral,
+                'user_total_points' => (int)($user->points ?? 0),
                 'rank' => $rank,
                 'rank_photo' => $rankPhoto,
                 'recent_referrals' => $recentReferrals
@@ -475,5 +533,73 @@ class AffiliateController extends Controller
             ]
         ]);
     }
-}
 
+    /**
+     * معالجة مكافأة الإحالة عند تسجيل مستخدم جديد بنجاح
+     * يتم تسجيل التتبع في affiliate_trackings وزيادة نقاط المسوق في جدول users
+     * 
+     * @param User $newUser المستخدم الجديد الذي تم إنشاؤه
+     * @param string|null $code كود الإحالة إن وجد
+     * @param string|null $ip عنوان IP
+     * @return bool
+     */
+    public static function processReferralReward($newUser, $code = null, $ip = null)
+    {
+        try {
+            if (empty($code) && session()->has('affiliate_ref')) {
+                $code = session('affiliate_ref');
+            }
+
+            if (empty($code)) {
+                return false;
+            }
+
+            $link = AffiliateLink::where('code', $code)->where('is_active', true)->first();
+            if (!$link) {
+                return false;
+            }
+
+            // منع المستخدم من إحالة نفسه
+            if ($link->user_id == $newUser->id) {
+                return false;
+            }
+
+            // التحقق من عدم تسجيل الإحالة مسبقاً لهذا المستخدم
+            $exists = AffiliateTracking::where('affiliate_link_id', $link->id)
+                ->where('registered_user_id', $newUser->id)
+                ->exists();
+
+            if ($exists) {
+                return false;
+            }
+
+            // 1. تسجيل حركة التتبع في الجدول
+            AffiliateTracking::create([
+                'affiliate_link_id' => $link->id,
+                'registered_user_id' => $newUser->id,
+                'ip_address' => $ip ?: request()->ip(),
+            ]);
+
+            // 2. جلب عدد النقاط المحددة من لوحة التحكم
+            $settings = AffiliateSetting::getSettings();
+            $pointsToAdd = (int)($settings->reward_points_per_referral ?? 50);
+
+            // 3. زيادة النقاط في جدول المستخدم المسوق (users)
+            if ($pointsToAdd > 0) {
+                $referrer = $link->user;
+                if ($referrer) {
+                    $referrer->increment('points', $pointsToAdd);
+                }
+            }
+
+            if (session()->has('affiliate_ref')) {
+                session()->forget('affiliate_ref');
+            }
+
+            return true;
+        } catch (\Exception $e) {
+            Log::error('Error processing referral reward: ' . $e->getMessage());
+            return false;
+        }
+    }
+}

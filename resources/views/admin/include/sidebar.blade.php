@@ -142,6 +142,8 @@
                 </li>
                 <li> <a href="{{route('add.affiliate')}}"><i class='bx bx-radio-circle'></i>إنشاء رابط جديد</a>
                 </li>
+                <li> <a href="{{route('affiliate.settings')}}"><i class='bx bx-radio-circle'></i>إعدادات نقاط المكافأة</a>
+                </li>
             </ul>
         </li>
 

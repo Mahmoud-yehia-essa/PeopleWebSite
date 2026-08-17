@@ -294,6 +294,8 @@ Route::middleware(['auth', 'admin'])->group(function () {
     Route::get('/admin/affiliate/{id}/trackings', [AffiliateController::class, 'getTrackings'])->name('affiliate.trackings');
     Route::get('/admin/affiliate-trackings', [AffiliateController::class, 'allTrackings'])->name('all.affiliate_trackings');
     Route::get('/admin/affiliate-trackings/delete/{id}', [AffiliateController::class, 'deleteTracking'])->name('delete.affiliate_tracking');
+    Route::get('/admin/affiliate/settings', [AffiliateController::class, 'affiliateSettings'])->name('affiliate.settings');
+    Route::post('/admin/affiliate/settings/update', [AffiliateController::class, 'updateAffiliateSettings'])->name('update.affiliate_settings');
 
     // إدارة الرتب والمستويات (Rankings & Levels)
     Route::get('/admin/rankings/all', [RankingController::class, 'allRankings'])->name('all.rankings');
