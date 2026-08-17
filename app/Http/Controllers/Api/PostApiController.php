@@ -794,13 +794,22 @@ class PostApiController extends Controller
             }
             $postId = $comment->post_id;
             $parentId = $comment->parent_id;
+            
+            $comment->is_active = 0;
+            $comment->save();
             $comment->delete();
 
+            // تعطيل وحذف الردود التابعة إن وجدت
+            Comment::where('parent_id', $comment->id)->update(['is_active' => 0]);
+            Comment::where('parent_id', $comment->id)->delete();
+
             if ($postId) {
-                Post::where('id', $postId)->where('comment_count', '>', 0)->decrement('comment_count');
+                $actualCount = Comment::where('post_id', $postId)->where('is_active', 1)->count();
+                Post::where('id', $postId)->update(['comment_count' => $actualCount]);
             }
-            if ($parentId > 0) {
-                Comment::where('id', $parentId)->where('reply_count', '>', 0)->decrement('reply_count');
+            if ($parentId && $parentId > 0) {
+                $actualReplyCount = Comment::where('parent_id', $parentId)->where('is_active', 1)->count();
+                Comment::where('id', $parentId)->update(['reply_count' => $actualReplyCount]);
             }
         }
 
@@ -972,56 +981,68 @@ class PostApiController extends Controller
         }
         $currentUserId = $currentUser ? (int)$currentUser->id : 0;
 
-        // جلب التعليقات الرئيسية فقط (التي يكون الـ parent_id فيها مساوياً لـ 0)
-        $comments = Comment::with(['user'])
-                           ->where('post_id', $request->post_id)
-                           ->where('parent_id', 0)
-                           ->where('is_active', 1)
-                           ->orderBy('created_at', 'asc')
-                           ->get();
+        // جلب جميع التعليقات الفعالة التابعة للمنشور
+        $allComments = Comment::with(['user'])
+            ->where('post_id', $request->post_id)
+            ->where('is_active', 1)
+            ->orderBy('created_at', 'asc')
+            ->get();
 
-        $formattedComments = $comments->map(function ($comment) use ($currentUserId) {
-            // جلب الردود الفرعية التابعة لهذا التعليق (Threads)
-            $replies = Comment::with(['user'])
-                              ->where('parent_id', $comment->id)
-                              ->where('is_active', 1)
-                              ->orderBy('created_at', 'asc')
-                              ->get()
-                              ->map(function ($reply) use ($currentUserId) {
-                                  $replyAvatarUrl = null;
-                                  if ($reply->user && $reply->user->profile_picture && $reply->user->profile_picture !== 'non') {
-                                      $replyAvatarUrl = filter_var($reply->user->profile_picture, FILTER_VALIDATE_URL)
-                                          ? $reply->user->profile_picture
-                                          : asset('new_wiselook/uploads/' . $reply->user->profile_picture);
-                                  }
+        $allCommentIds = $allComments->pluck('id')->toArray();
 
-                                  $isReplyLiked = $currentUserId > 0 ? Reaction::where('user_id', $currentUserId)
-                                      ->where('content_id', $reply->id)
-                                      ->where('content_type_id', 2)
-                                      ->where('is_active', 1)
-                                      ->exists() : false;
+        // التعليقات الرئيسية: التي parent_id لها 0 أو null أو أن الـ parent_id الخاص بها غير موجود بين التعليقات الفعالة
+        $rootComments = $allComments->filter(function ($comment) use ($allCommentIds) {
+            $pId = (int)($comment->parent_id ?? 0);
+            return $pId === 0 || !in_array($pId, $allCommentIds);
+        });
 
-                                  $replyReactionCount = Reaction::where('content_id', $reply->id)
-                                      ->where('content_type_id', 2)
-                                      ->where('is_active', 1)
-                                      ->count();
+        // تجميع الردود حسب الـ parent_id
+        $repliesGrouped = $allComments->filter(function ($comment) use ($allCommentIds) {
+            $pId = (int)($comment->parent_id ?? 0);
+            return $pId > 0 && in_array($pId, $allCommentIds);
+        })->groupBy('parent_id');
 
-                                  return [
-                                      'id'             => (int)$reply->id,
-                                      'post_id'        => (int)$reply->post_id,
-                                      'content'        => $reply->content,
-                                      'created_at'     => $reply->created_at->toDateTimeString(),
-                                      'reaction_count' => $replyReactionCount,
-                                      'is_reacted'     => $isReplyLiked ? 1 : 0,
-                                      'is_liked'       => $isReplyLiked,
-                                      'user' => [
-                                          'id'              => (int)$reply->user->id,
-                                          'first_name'      => $reply->user->first_name ?? '',
-                                          'last_name'       => $reply->user->last_name ?? '',
-                                          'profile_picture' => $replyAvatarUrl
-                                      ]
-                                  ];
-                              })->toArray();
+        // جلب التفاعلات (Likes) للمستخدم الحالي
+        $likedCommentIds = [];
+        if ($currentUserId > 0 && $allComments->isNotEmpty()) {
+            $likedCommentIds = Reaction::where('user_id', $currentUserId)
+                ->where('content_type_id', 2)
+                ->whereIn('content_id', $allComments->pluck('id'))
+                ->where('is_active', 1)
+                ->pluck('content_id')
+                ->map(fn($id) => (int)$id)
+                ->toArray();
+        }
+
+        $formattedComments = $rootComments->map(function ($comment) use ($repliesGrouped, $currentUserId, $likedCommentIds) {
+            $commentReplies = $repliesGrouped->get($comment->id, collect());
+            
+            $formattedReplies = $commentReplies->map(function ($reply) use ($currentUserId, $likedCommentIds) {
+                $replyAvatarUrl = null;
+                if ($reply->user && $reply->user->profile_picture && $reply->user->profile_picture !== 'non') {
+                    $replyAvatarUrl = filter_var($reply->user->profile_picture, FILTER_VALIDATE_URL)
+                        ? $reply->user->profile_picture
+                        : asset('new_wiselook/uploads/' . $reply->user->profile_picture);
+                }
+
+                $isReplyLiked = in_array((int)$reply->id, $likedCommentIds);
+
+                return [
+                    'id'             => (int)$reply->id,
+                    'post_id'        => (int)$reply->post_id,
+                    'content'        => $reply->content,
+                    'created_at'     => $reply->created_at ? $reply->created_at->toDateTimeString() : '',
+                    'reaction_count' => (int)($reply->reaction_count ?? 0),
+                    'is_reacted'     => $isReplyLiked ? 1 : 0,
+                    'is_liked'       => $isReplyLiked,
+                    'user' => [
+                        'id'              => (int)($reply->user->id ?? $reply->user_id),
+                        'first_name'      => $reply->user->first_name ?? '',
+                        'last_name'       => $reply->user->last_name ?? '',
+                        'profile_picture' => $replyAvatarUrl
+                    ]
+                ];
+            })->values()->toArray();
 
             $avatarUrl = null;
             if ($comment->user && $comment->user->profile_picture && $comment->user->profile_picture !== 'non') {
@@ -1030,37 +1051,29 @@ class PostApiController extends Controller
                     : asset('new_wiselook/uploads/' . $comment->user->profile_picture);
             }
 
-            $isCommentLiked = $currentUserId > 0 ? Reaction::where('user_id', $currentUserId)
-                ->where('content_id', $comment->id)
-                ->where('content_type_id', 2)
-                ->where('is_active', 1)
-                ->exists() : false;
-
-            $reactionCount = Reaction::where('content_id', $comment->id)
-                ->where('content_type_id', 2)
-                ->where('is_active', 1)
-                ->count();
+            $isCommentLiked = in_array((int)$comment->id, $likedCommentIds);
 
             return [
                 'id'             => (int)$comment->id,
                 'post_id'        => (int)$comment->post_id,
                 'content'        => $comment->content,
-                'created_at'     => $comment->created_at->toDateTimeString(),
-                'reaction_count' => $reactionCount,
+                'created_at'     => $comment->created_at ? $comment->created_at->toDateTimeString() : '',
+                'reaction_count' => (int)($comment->reaction_count ?? 0),
                 'is_reacted'     => $isCommentLiked ? 1 : 0,
                 'is_liked'       => $isCommentLiked,
                 'user' => [
-                    'id'              => (int)$comment->user->id,
+                    'id'              => (int)($comment->user->id ?? $comment->user_id),
                     'first_name'      => $comment->user->first_name ?? '',
                     'last_name'       => $comment->user->last_name ?? '',
                     'profile_picture' => $avatarUrl
                 ],
-                'replies'        => $replies
+                'replies'        => $formattedReplies
             ];
-        });
+        })->values();
 
         return response()->json([
             'success' => true,
+            'count'   => $allComments->count(),
             'data'    => $formattedComments
         ]);
     }
@@ -1122,9 +1135,11 @@ class PostApiController extends Controller
         ]);
 
         // تحديث عدادات المنشور والتعليق الأب
-        Post::where('id', $request->post_id)->increment('comment_count');
+        $actualCount = Comment::where('post_id', $request->post_id)->where('is_active', 1)->count();
+        Post::where('id', $request->post_id)->update(['comment_count' => $actualCount]);
         if ($parentId > 0) {
-            Comment::where('id', $parentId)->increment('reply_count');
+            $actualReplyCount = Comment::where('parent_id', $parentId)->where('is_active', 1)->count();
+            Comment::where('id', $parentId)->update(['reply_count' => $actualReplyCount]);
         }
 
         // إرسال إشعار لصاحب المنشور إذا كان تعليقاً رئيسياً

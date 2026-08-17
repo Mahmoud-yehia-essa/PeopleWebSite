@@ -1008,12 +1008,23 @@ class PostController extends Controller
      */
     public function getPostComments($id)
     {
-        $comments = Comment::with(['user', 'replies.user'])
+        $allComments = Comment::with(['user'])
             ->where('post_id', $id)
-            ->where('parent_id', 0)
             ->where('is_active', 1)
-            ->latest()
+            ->orderBy('created_at', 'asc')
             ->get();
+
+        $allCommentIds = $allComments->pluck('id')->toArray();
+
+        $comments = $allComments->filter(function ($comment) use ($allCommentIds) {
+            $pId = (int)($comment->parent_id ?? 0);
+            return $pId === 0 || !in_array($pId, $allCommentIds);
+        });
+
+        $repliesGrouped = $allComments->filter(function ($comment) use ($allCommentIds) {
+            $pId = (int)($comment->parent_id ?? 0);
+            return $pId > 0 && in_array($pId, $allCommentIds);
+        })->groupBy('parent_id');
 
         $userId = auth()->check() ? auth()->id() : null;
         $likedCommentIds = [];
