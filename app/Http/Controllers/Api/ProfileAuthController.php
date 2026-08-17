@@ -849,7 +849,8 @@ class ProfileAuthController extends Controller
             'last_name'       => 'nullable|string|max:50',
             'email'           => 'nullable|email|unique:users,email,' . $user->id,
             'phone_number'    => 'nullable|string|max:30',
-            'cover_text'      => 'nullable|string', // سيتم حفظه في حقل bio المتواجد بقاعدة بياناتك
+            'bio'             => 'nullable|string',
+            'cover_text'      => 'nullable|string',
             'profile_picture' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:4096',
             'cover_picture'   => 'nullable|image|mimes:jpeg,png,jpg,gif|max:4096',
         ]);
@@ -863,7 +864,8 @@ class ProfileAuthController extends Controller
         if ($request->has('last_name'))  $user->last_name = $request->last_name;
         if ($request->has('email'))      $user->email = $request->email;
         if ($request->has('phone_number')) $user->phone_number = $request->phone_number;
-        if ($request->has('cover_text'))  $user->bio = $request->cover_text; // ربط النص بحقل الـ bio
+        if ($request->has('bio'))        $user->bio = $request->bio;
+        if ($request->has('cover_text'))  $user->bio = $request->cover_text;
 
         // معالجة ورفع الصورة الشخصية (Profile Picture)
         if ($request->hasFile('profile_picture')) {
