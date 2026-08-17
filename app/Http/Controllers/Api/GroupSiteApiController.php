@@ -1074,6 +1074,78 @@ class GroupSiteApiController extends Controller
 
         return response()->json(['success' => false, 'message' => 'العضو غير موجود في المجموعة'], 404);
     }
-}
+    /**
+     * حذف موضوع من المجموعة
+     */
+    public function deleteSubject(Request $request)
+    {
+        $currentUser = null;
+        try {
+            $currentUser = auth('sanctum')->user();
+        } catch (\Exception $e) {}
+        if (!$currentUser && $request->input('user_id')) {
+            $currentUser = User::find($request->input('user_id'));
+        }
 
+        if (!$currentUser) {
+            return response()->json(['success' => false, 'message' => 'المستخدم غير مسجل'], 401);
+        }
+
+        $subjectId = $request->input('subject_id') ?? $request->input('id');
+        if (!$subjectId) {
+            return response()->json(['success' => false, 'message' => 'معرف الموضوع مطلوب'], 422);
+        }
+
+        $subject = GroupSubject::find($subjectId);
+        if (!$subject) {
+            return response()->json(['success' => false, 'message' => 'الموضوع غير موجود أو تم حذفه مسبقاً'], 404);
+        }
+
+        $group = $subject->groupSite;
+
+        // التحقق من الصلاحية: صاحب الموضوع أو مدير المجموعة
+        $canDelete = ((int)$subject->user_id === (int)$currentUser->id) || ($group && (int)$group->admin_user_id === (int)$currentUser->id);
+        if (!$canDelete) {
+            return response()->json(['success' => false, 'message' => 'غير مصرح لك بحذف هذا الموضوع.'], 403);
+        }
+
+        try {
+            // حذف المرفق المحلي
+            if ($subject->attachment_path && !filter_var($subject->attachment_path, FILTER_VALIDATE_URL)) {
+                $oldPath = public_path('upload/group_subjects/' . $subject->attachment_path);
+                if (File::exists($oldPath)) {
+                    File::delete($oldPath);
+                }
+            }
+
+            // حذف تفاعلات الموضوع
+            GroupSiteSubjectReaction::where('group_subject_id', $subjectId)->delete();
+
+            // حذف تفاعلات التعليقات
+            $commentIds = GroupSiteComment::where('group_subject_id', $subjectId)->pluck('id');
+            Reaction::whereIn('content_id', $commentIds)->whereIn('content_type_id', [3, 4])->delete();
+
+            // حذف التعليقات
+            GroupSiteComment::where('group_subject_id', $subjectId)->delete();
+
+            $subject->delete();
+
+            // تحديث عدد المواضيع
+            if ($group) {
+                $newCount = GroupSubject::where('group_site_id', $group->id)->count();
+                $group->update(['subjects_count' => $newCount]);
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'تم حذف الموضوع بنجاح.'
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'حدث خطأ أثناء حذف الموضوع: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+}
 

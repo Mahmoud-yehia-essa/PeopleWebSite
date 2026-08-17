@@ -153,6 +153,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::match(['get', 'post'], 'create.php', [GroupSiteApiController::class, 'createGroup']);
         Route::match(['get', 'post'], 'update.php', [GroupSiteApiController::class, 'updateGroup']);
         Route::match(['get', 'post'], 'add_subject.php', [GroupSiteApiController::class, 'addSubject']);
+        Route::match(['get', 'post'], 'delete_subject.php', [GroupSiteApiController::class, 'deleteSubject']);
         Route::match(['get', 'post'], 'toggle_reaction.php', [GroupSiteApiController::class, 'toggleSubjectReaction']);
         Route::match(['get', 'post'], 'add_comment.php', [GroupSiteApiController::class, 'addSubjectComment']);
         Route::match(['get', 'post'], 'react_comment.php', [GroupSiteApiController::class, 'reactSubjectComment']);
@@ -177,6 +178,7 @@ Route::prefix('group_sites')->group(function () {
     Route::match(['get', 'post'], 'comment_reactions.php', [GroupSiteApiController::class, 'getCommentReactions']);
     Route::match(['get', 'post'], 'subject_reactions.php', [GroupSiteApiController::class, 'getSubjectReactions']);
     Route::match(['get', 'post'], 'members.php', [GroupSiteApiController::class, 'getGroupMembers']);
+    Route::match(['get', 'post'], 'delete_subject.php', [GroupSiteApiController::class, 'deleteSubject']);
 });
 
 // مسار القاموس والترجمات العام (لا يتطلب تسجيل دخول لتمكين Splash Screen والـ Login من الترجمة)
