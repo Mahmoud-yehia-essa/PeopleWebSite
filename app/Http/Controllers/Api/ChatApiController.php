@@ -301,8 +301,18 @@ class ChatApiController extends Controller
             return response()->json(['success' => false, 'status' => 'error', 'message' => 'غير مسموح لك بحذف هذه الرسالة.'], 403);
         }
 
-        $receiverId = (int)$message->receiver_id;
+        $receiverId = $message->receiver_id ? (int)$message->receiver_id : null;
         $senderId   = (int)$message->sender_id;
+        $groupId    = $message->group_id ? (int)$message->group_id : null;
+
+        $memberIds = [];
+        if ($groupId) {
+            $memberIds = \App\Models\GroupMember::where('group_id', $groupId)
+                ->where('is_active', 1)
+                ->pluck('user_id')
+                ->map(fn($id) => (int)$id)
+                ->toArray();
+        }
 
         foreach (['image', 'video', 'audio'] as $field) {
             if ($message->$field) {
@@ -316,7 +326,7 @@ class ChatApiController extends Controller
         $message->delete();
 
         try {
-            event(new MessageDeleted((int)$targetMsgId, $receiverId, $senderId));
+            event(new MessageDeleted((int)$targetMsgId, $receiverId, $senderId, $groupId, $memberIds));
         } catch (\Throwable $e) {
             \Illuminate\Support\Facades\Log::warning('Reverb Broadcast Delete Error: ' . $e->getMessage());
         }
