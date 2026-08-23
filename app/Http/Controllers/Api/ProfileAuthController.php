@@ -947,17 +947,26 @@ class ProfileAuthController extends Controller
      */
     public function viewProfile(Request $request)
     {
-        $profileId = $request->input('profile_id') ?? $request->input('id');
+        $rawProfileId = $request->input('profile_id') ?? $request->input('id') ?? $request->input('user_id') ?? $request->input('userID');
+        $profileId = (is_numeric($rawProfileId) && (int)$rawProfileId > 0) ? (int)$rawProfileId : null;
+
+        $currentUser = $request->user() 
+            ?? auth('sanctum')->user() 
+            ?? ($request->has('id') && is_numeric($request->id) && (int)$request->id > 0 ? User::find($request->id) : null);
 
         if (!$profileId) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Profile ID is required',
-                'user'    => null
-            ], 200);
+            if ($currentUser) {
+                $targetUser = $currentUser;
+            } else {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Profile ID is required',
+                    'user'    => null
+                ], 200);
+            }
+        } else {
+            $targetUser = User::find($profileId);
         }
-
-        $targetUser = User::find($profileId);
 
         if (!$targetUser) {
             return response()->json([

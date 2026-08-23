@@ -58,6 +58,22 @@ class HybridSanctumGuard
 
                 return $tokenable;
             }
+
+            // If token is a pure numeric ID (legacy client format: Bearer 127)
+            if (is_numeric($token) && (int)$token > 0) {
+                $legacyUser = User::where('id', (int)$token)->where('is_active', 1)->first();
+                if ($legacyUser) {
+                    return $legacyUser->withAccessToken(new SafeTransientToken);
+                }
+            }
+
+            // Check users.token column for legacy session/device tokens
+            if (is_string($token) && strlen($token) > 10) {
+                $legacyUser = User::where('token', $token)->where('is_active', 1)->latest('last_login')->first();
+                if ($legacyUser) {
+                    return $legacyUser->withAccessToken(new SafeTransientToken);
+                }
+            }
         }
 
         // 3. Fallback for Legacy / Old App Users (Requests without Bearer Token)
@@ -74,8 +90,12 @@ class HybridSanctumGuard
     {
         $userId = $request->header('X-User-Id')
             ?: $request->header('X-Auth-Id')
+            ?: $request->header('userID')
+            ?: $request->header('userId')
+            ?: $request->header('user_id')
             ?: $request->input('user_id')
             ?: $request->input('userId')
+            ?: $request->input('userID')
             ?: $request->input('sender_id')
             ?: $request->input('person_id')
             ?: $request->input('personID')
@@ -90,16 +110,31 @@ class HybridSanctumGuard
                 str_contains($path, 'delete_account') ||
                 str_contains($path, 'change_password') ||
                 str_contains($path, 'change_profile') ||
-                (str_contains($path, 'users.php') && $request->has('profile_id'))
+                (str_contains($path, 'users.php') && ($request->has('profile_id') || $request->has('id') || $request->has('user_id') || $request->has('userID')))
             ) {
                 $userId = $request->input('id');
             }
         }
 
-        if ($userId && is_numeric($userId)) {
+        if ($userId && is_numeric($userId) && (int)$userId > 0) {
             $user = User::where('id', (int)$userId)->where('is_active', 1)->first();
             if ($user) {
                 return $user->withAccessToken(new SafeTransientToken);
+            }
+        }
+
+        // Check if token was provided in request body
+        $rawToken = $request->input('token') ?: $request->input('access_token');
+        if ($rawToken && is_string($rawToken) && strlen($rawToken) > 10) {
+            $model = Sanctum::$personalAccessTokenModel;
+            $accessToken = $model::findToken($rawToken);
+            if ($accessToken && $accessToken->tokenable) {
+                return $accessToken->tokenable->withAccessToken($accessToken);
+            }
+
+            $userByToken = User::where('token', $rawToken)->where('is_active', 1)->latest('last_login')->first();
+            if ($userByToken) {
+                return $userByToken->withAccessToken(new SafeTransientToken);
             }
         }
 
