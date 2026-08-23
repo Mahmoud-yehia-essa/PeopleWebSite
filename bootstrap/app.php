@@ -22,6 +22,7 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
         $middleware->alias([
             'admin' => \App\Http\Middleware\AdminMiddleware::class,
+            'hybrid.auth' => \App\Http\Middleware\HybridSanctumAuth::class,
         ]);
         $middleware->redirectGuestsTo(function (Request $request) {
             if ($request->is('admin*') || $request->is('dashboard')) {
@@ -31,6 +32,9 @@ return Application::configure(basePath: dirname(__DIR__))
         });
         $middleware->web(append: [
             \App\Http\Middleware\SetLocaleMiddleware::class,
+        ]);
+        $middleware->api(prepend: [
+            \App\Http\Middleware\HybridSanctumAuth::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

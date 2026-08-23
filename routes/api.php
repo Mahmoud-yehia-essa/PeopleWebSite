@@ -110,6 +110,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::match(['get', 'post'], 'chat/messages.php', [ChatApiController::class, 'fetchMessages']);
     Route::match(['get', 'post'], 'chat/fetch_messages.php', [ChatApiController::class, 'fetchMessages']);
     Route::match(['get', 'post'], 'chat/delete_message.php', [ChatApiController::class, 'deleteMessage']);
+    Route::match(['get', 'post'], 'chat/upload_media.php', [ChatApiController::class, 'uploadMedia']);
+    Route::match(['get', 'post'], 'chat/upload.php', [ChatApiController::class, 'uploadMedia']);
 
     Route::match(['get', 'post'], 'messages', [ChatApiController::class, 'sendMessage']);
     Route::match(['get', 'post'], 'messages/send', [ChatApiController::class, 'sendMessage']);

@@ -337,4 +337,37 @@ class ChatApiController extends Controller
             'message' => 'تم حذف الرسالة بنجاح'
         ]);
     }
+
+    /**
+     * رفع وسائط المحادثة (صور، فيديو، صوت)
+     */
+    public function uploadMedia(Request $request)
+    {
+        $file = $request->file('media') ?? $request->file('file') ?? $request->file('image') ?? $request->file('audio') ?? $request->file('video');
+        if (!$file) {
+            return response()->json(['success' => false, 'message' => 'No media file provided'], 422);
+        }
+
+        $extension = $file->getClientOriginalExtension() ?: 'bin';
+        $fileName = date('YmdHis') . '_' . uniqid() . '.' . $extension;
+        $uploadsDir = public_path('new_wiselook/uploads');
+        if (!file_exists($uploadsDir)) {
+            mkdir($uploadsDir, 0755, true);
+        }
+        $file->move($uploadsDir, $fileName);
+        $url = asset('new_wiselook/uploads/' . $fileName);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Media uploaded successfully',
+            'url'     => $url,
+            'path'    => $fileName,
+            'file'    => $fileName,
+            'data'    => [
+                'url'      => $url,
+                'filename' => $fileName
+            ]
+        ]);
+    }
+
 }

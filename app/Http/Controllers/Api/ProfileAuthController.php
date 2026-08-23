@@ -403,11 +403,25 @@ class ProfileAuthController extends Controller
      */
     public function logout(Request $request)
     {
-        // إبطال وتدمير الـ Token الحالي المستخدم من الموبايل فوراً
-        $request->user()->currentAccessToken()->delete();
+        $user = $request->user();
+        if (!$user && $request->filled('user_id')) {
+            $user = User::find($request->input('user_id'));
+        }
+        if (!$user && $request->filled('id')) {
+            $user = User::find($request->input('id'));
+        }
 
-        // إبطال حقل الـ token الإشعارات لعدم إرسال إشعارات بعد الخروج
-        $request->user()->update(['token' => null]);
+        if ($user) {
+            if ($user->currentAccessToken() && method_exists($user->currentAccessToken(), 'delete')) {
+                try {
+                    $user->currentAccessToken()->delete();
+                } catch (\Throwable $e) {}
+            }
+
+            try {
+                $user->update(['token' => null]);
+            } catch (\Throwable $e) {}
+        }
 
         return response()->json([
             'success' => true,
@@ -421,8 +435,17 @@ class ProfileAuthController extends Controller
     public function deleteAccount(Request $request)
     {
         $user = $request->user();
+        if (!$user && $request->filled('user_id')) {
+            $user = User::find($request->input('user_id'));
+        }
+        if (!$user && $request->filled('id')) {
+            $user = User::find($request->input('id'));
+        }
+
+        if (!$user) {
+            return response()->json(['success' => false, 'message' => 'Unauthenticated'], 401);
+        }
         
-        // استخدام Soft Delete أو Delete نهائي متوافق مع هيكلتك
         $user->delete();
 
         return response()->json([
@@ -800,6 +823,16 @@ class ProfileAuthController extends Controller
         }
 
         $user = $request->user();
+        if (!$user && $request->filled('user_id')) {
+            $user = User::find($request->input('user_id'));
+        }
+        if (!$user && $request->filled('id')) {
+            $user = User::find($request->input('id'));
+        }
+
+        if (!$user) {
+            return response()->json(['success' => false, 'message' => 'Unauthenticated'], 401);
+        }
 
         if (!Hash::check($request->old_password, $user->password)) {
             return response()->json(['success' => false, 'message' => 'Current password is incorrect'], 400);
