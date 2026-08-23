@@ -79,10 +79,8 @@ class PasswordResetLinkController extends Controller
         try {
             BrevoMailService::sendResetCodeMail($user, $code, $resetUrl);
             Log::info("Brevo reset OTP mail processed successfully for {$user->email}");
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             Log::error("Failed to send Brevo password reset mail to {$user->email}: " . $e->getMessage());
-            return back()->withInput($request->only('email'))
-                ->withErrors(['email' => 'حدث خطأ أثناء الإرسال: ' . $e->getMessage()]);
         }
 
         // تخزين بيانات إعادة التعيين في Session للانتقال لاحقاً

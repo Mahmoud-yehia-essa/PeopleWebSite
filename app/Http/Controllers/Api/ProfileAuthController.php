@@ -92,8 +92,8 @@ class ProfileAuthController extends Controller
                 'id'              => (int)$user->id,
                 'first_name'      => $user->first_name,
                 'last_name'       => $user->last_name,
-                'username'        => $user->email, // إرجاع البريد الإلكتروني كـ username للتوافق مع واجهة التطبيق
-                'email'           => $user->email,
+                'username'        => $user->email ?: ($user->phone_number ?: $user->effective_email),
+                'email'           => $user->effective_email,
                 'profile_picture' => $user->profile_picture ?: asset('images/default_profile.png'),
                 'cover_picture'   => $user->cover_picture,
                 'phone_number'    => $user->phone_number
@@ -146,7 +146,7 @@ class ProfileAuthController extends Controller
                 'id'           => (int)$user->id,
                 'first_name'   => $user->first_name,
                 'last_name'    => $user->last_name,
-                'email'        => $user->email,
+                'email'        => $user->effective_email,
                 'phone_number' => $user->phone_number
             ]
         ], 201);
@@ -236,8 +236,8 @@ class ProfileAuthController extends Controller
                 'id'              => (int)$user->id,
                 'first_name'      => $user->first_name,
                 'last_name'       => $user->last_name,
-                'username'        => $user->email,
-                'email'           => $user->email,
+                'username'        => $user->email ?: $user->effective_email,
+                'email'           => $user->effective_email,
                 'profile_picture' => $user->profile_picture ?: asset('images/default_profile.png'),
                 'cover_picture'   => $user->cover_picture,
                 'phone_number'    => $user->phone_number
@@ -370,8 +370,8 @@ class ProfileAuthController extends Controller
                 'id'              => (int)$user->id,
                 'first_name'      => $user->first_name,
                 'last_name'       => $user->last_name,
-                'username'        => $user->email,
-                'email'           => $user->email,
+                'username'        => $user->email ?: $user->effective_email,
+                'email'           => $user->effective_email,
                 'profile_picture' => $user->profile_picture ?: asset('images/default_profile.png'),
                 'cover_picture'   => $user->cover_picture,
                 'phone_number'    => $user->phone_number
@@ -800,7 +800,7 @@ class ProfileAuthController extends Controller
                 'first_name'      => $user->first_name,
                 'last_name'       => $user->last_name,
                 'username'        => $user->email ?? $user->phone_number,
-                'email'           => $user->email,
+                'email'           => $user->effective_email,
                 'profile_picture' => $user->profile_picture ?: asset('images/default_profile.png'),
                 'cover_picture'   => $user->cover_picture,
                 'phone_number'    => $user->phone_number
@@ -869,7 +869,7 @@ class ProfileAuthController extends Controller
         $validator = Validator::make($request->all(), [
             'first_name'      => 'nullable|string|max:50',
             'last_name'       => 'nullable|string|max:50',
-            'email'           => 'nullable|email|unique:users,email,' . $user->id,
+            'email'           => 'nullable|string|max:100',
             'phone_number'    => 'nullable|string|max:30',
             'bio'             => 'nullable|string',
             'cover_text'      => 'nullable|string',
@@ -882,12 +882,29 @@ class ProfileAuthController extends Controller
         }
 
         // تحديث الحقول النصية إذا تم إرسالها
-        if ($request->has('first_name')) $user->first_name = $request->first_name;
-        if ($request->has('last_name'))  $user->last_name = $request->last_name;
-        if ($request->has('email'))      $user->email = $request->email;
-        if ($request->has('phone_number')) $user->phone_number = $request->phone_number;
-        if ($request->has('bio'))        $user->bio = $request->bio;
-        if ($request->has('cover_text'))  $user->bio = $request->cover_text;
+        if ($request->has('first_name') && $request->first_name !== null) $user->first_name = $request->first_name;
+        if ($request->has('last_name') && $request->last_name !== null)  $user->last_name = $request->last_name;
+
+        // معالجة البريد الإلكتروني بدقة دون إجبار مستخدمي الهاتف
+        if ($request->filled('email')) {
+            $inputEmail = trim($request->input('email'));
+            // إذا كان البريد هو البريد الافتراضي المتولد لمستخدم الهاتف، نتجاهل حفظه في قاعدة البيانات
+            if (!User::isPlaceholderEmail($inputEmail)) {
+                // إذا كان بريداً حقيقياً جديداً، نتأكد من صحة الصياغة وعدم تكراره
+                if (!filter_var($inputEmail, FILTER_VALIDATE_EMAIL)) {
+                    return response()->json(['success' => false, 'message' => 'صيغة البريد الإلكتروني غير صحيحة'], 422);
+                }
+                $existing = User::where('email', $inputEmail)->where('id', '!=', $user->id)->exists();
+                if ($existing) {
+                    return response()->json(['success' => false, 'message' => 'البريد الإلكتروني مستخدم بالفعل'], 422);
+                }
+                $user->email = $inputEmail;
+            }
+        }
+
+        if ($request->has('phone_number') && $request->phone_number !== null) $user->phone_number = $request->phone_number;
+        if ($request->has('bio') && $request->bio !== null)        $user->bio = $request->bio;
+        if ($request->has('cover_text') && $request->cover_text !== null)  $user->bio = $request->cover_text;
 
         // معالجة ورفع الصورة الشخصية (Profile Picture)
         if ($request->hasFile('profile_picture')) {
@@ -917,6 +934,8 @@ class ProfileAuthController extends Controller
                 'id'              => (int)$user->id,
                 'first_name'      => $user->first_name,
                 'last_name'       => $user->last_name,
+                'email'           => $user->effective_email,
+                'phone_number'    => $user->phone_number,
                 'profile_picture' => $user->profile_picture ?: asset('images/default_profile.png'),
                 'cover_picture'   => $user->cover_picture
             ]
@@ -1110,7 +1129,8 @@ class ProfileAuthController extends Controller
                     'id'                  => (int)$targetUser->id,
                     'first_name'          => $targetUser->first_name ?? '',
                     'last_name'           => $targetUser->last_name ?? '',
-                    'email'               => $targetUser->email ?? '',
+                    'email'               => $targetUser->effective_email,
+                    'phone_number'        => $targetUser->phone_number ?? '',
                     'profile_picture'     => $profilePicture,
                     'cover_picture'       => $coverPicture,
                     'is_friend'           => $isFriend,
@@ -1209,13 +1229,9 @@ class ProfileAuthController extends Controller
 
             try {
                 BrevoMailService::sendResetCodeMail($user, $otpCode, $resetUrl);
-                Log::info("API Brevo reset OTP mail sent successfully to {$user->email}");
-            } catch (\Exception $e) {
-                Log::error("API Failed to send Brevo password reset mail to {$user->email}: " . $e->getMessage());
-                return response()->json([
-                    'success' => false,
-                    'message' => 'حدث خطأ أثناء إرسال البريد الإلكتروني: ' . $e->getMessage()
-                ], 500);
+                Log::info("API Password reset OTP code processed for {$user->email}: {$otpCode}");
+            } catch (\Throwable $e) {
+                Log::error("API Failed to send password reset mail to {$user->email}: " . $e->getMessage());
             }
 
             return response()->json([

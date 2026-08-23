@@ -145,6 +145,37 @@ class User extends Authenticatable
     }
 
     /**
+     * Accessor for effective_email attribute.
+     * توليد وإرجاع بريد إلكتروني فعال للتطبيق للمستخدمين المسجلين بالهاتف
+     */
+    public function getEffectiveEmailAttribute(): string
+    {
+        if (!empty($this->email)) {
+            return $this->email;
+        }
+
+        $cleanPhone = preg_replace('/[^0-9]/', '', $this->phone_number ?? '');
+        if (!empty($cleanPhone)) {
+            return $cleanPhone . '@wiselook.com';
+        }
+
+        return 'user_' . ($this->id ?? 'guest') . '@wiselook.com';
+    }
+
+    /**
+     * فحص ما إذا كان البريد المعطى هو بريد افتراضي/تلقائي
+     */
+    public static function isPlaceholderEmail(?string $email): bool
+    {
+        if (empty($email)) {
+            return false;
+        }
+        return (bool) preg_match('/(@wiselook\.com)$/i', $email)
+            || (bool) preg_match('/^user_\d+@/i', $email)
+            || (bool) preg_match('/@privaterelay\.appleid\.com$/i', $email);
+    }
+
+    /**
      * Accessor for role. Returns the role column or defaults to 'user'.
      */
     public function getRoleAttribute($value)
