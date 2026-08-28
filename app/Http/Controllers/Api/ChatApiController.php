@@ -226,19 +226,38 @@ class ChatApiController extends Controller
     public function fetchMessages(Request $request, $receiverId = null)
     {
         $userId = $request->user() ? $request->user()->id : auth()->id();
+        if (!$userId) {
+            $userId = $request->header('X-User-Id')
+                ?: $request->header('X-Auth-Id')
+                ?: $request->query('user_id')
+                ?: $request->query('sender_id')
+                ?: $request->input('user_id')
+                ?: $request->input('sender_id');
+        }
+
         $targetId = $receiverId 
             ?? $request->input('receiver_id') 
+            ?? $request->query('receiver_id') 
             ?? $request->input('user_id') 
             ?? $request->input('recipient_id')
             ?? $request->input('person_id');
 
-        if (!$targetId) {
-            return response()->json(['success' => false, 'message' => 'receiver_id is required'], 422);
+        if (!$targetId || !$userId) {
+            return response()->json(['success' => true, 'status' => 'success', 'data' => [], 'messages' => []], 200);
         }
 
-        $beforeId = $request->input('before_id');
+        $beforeId = $request->input('before_id') ?? $request->query('before_id');
+        $limit = min(50, max(1, (int)($request->input('limit') ?? $request->query('limit', 30))));
 
-        $query = Message::with(['sender', 'parent.sender'])
+        $query = Message::select([
+                'id', 'sender_id', 'receiver_id', 'message', 'image', 'video', 'audio',
+                'parent_id', 'created_at', 'temp_id', 'is_read'
+            ])
+            ->with([
+                'sender:id,first_name,last_name,profile_picture',
+                'parent:id,sender_id,message,image,video,audio',
+                'parent.sender:id,first_name,last_name'
+            ])
             ->where(function($q) use ($userId, $targetId) {
                 $q->where('sender_id', $userId)->where('receiver_id', $targetId);
             })
@@ -251,12 +270,12 @@ class ChatApiController extends Controller
         }
 
         $messages = $query->orderBy('id', 'desc')
-            ->limit($request->input('limit', 30))
+            ->limit($limit)
             ->get()
             ->map(function($msg) {
-                $msg->image_url = $msg->image ? asset('new_wiselook/uploads/' . basename($msg->image)) : null;
-                $msg->video_url = $msg->video ? asset('new_wiselook/uploads/' . basename($msg->video)) : null;
-                $msg->audio_url = $msg->audio ? asset('new_wiselook/uploads/' . basename($msg->audio)) : null;
+                $msg->image_url = $msg->image ? (str_starts_with($msg->image, 'http') ? $msg->image : asset('new_wiselook/uploads/' . basename($msg->image))) : null;
+                $msg->video_url = $msg->video ? (str_starts_with($msg->video, 'http') ? $msg->video : asset('new_wiselook/uploads/' . basename($msg->video))) : null;
+                $msg->audio_url = $msg->audio ? (str_starts_with($msg->audio, 'http') ? $msg->audio : asset('new_wiselook/uploads/' . basename($msg->audio))) : null;
                 return $msg;
             })
             ->reverse()

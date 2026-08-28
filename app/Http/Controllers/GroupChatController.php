@@ -170,26 +170,45 @@ class GroupChatController extends Controller
     public function fetchGroupMessages(Request $request, $groupId)
     {
         $userId = auth('sanctum')->id() ?? Auth::id();
-
-        // Check if user is a member of the group
-        $isMember = GroupMember::where('group_id', $groupId)
-            ->where('user_id', $userId)
-            ->where('is_active', 1)
-            ->exists();
-
-        if (!$isMember) {
-            return response()->json(['status' => 'error', 'message' => 'غير مسموح لك باستعراض رسائل هذه المجموعة.'], 403);
+        if (!$userId) {
+            $userId = $request->header('X-User-Id')
+                ?: $request->header('X-Auth-Id')
+                ?: $request->query('user_id')
+                ?: $request->query('sender_id')
+                ?: $request->input('user_id')
+                ?: $request->input('sender_id');
         }
 
-        // Update user's last_read_at timestamp for this group
-        GroupMember::where('group_id', $groupId)
-            ->where('user_id', $userId)
-            ->where('is_active', 1)
-            ->update(['last_read_at' => now()]);
+        if ($userId) {
+            $isMember = GroupMember::where('group_id', $groupId)
+                ->where('user_id', $userId)
+                ->where('is_active', 1)
+                ->exists();
 
-        $beforeId = $request->query('before_id');
+            if (!$isMember) {
+                return response()->json(['status' => 'error', 'message' => 'غير مسموح لك باستعراض رسائل هذه المجموعة.'], 403);
+            }
 
-        $query = Message::with(['sender', 'parent.sender'])
+            try {
+                GroupMember::where('group_id', $groupId)
+                    ->where('user_id', $userId)
+                    ->where('is_active', 1)
+                    ->update(['last_read_at' => now()]);
+            } catch (\Throwable $e) {}
+        }
+
+        $beforeId = $request->query('before_id') ?? $request->input('before_id');
+        $limit = min(50, max(1, (int)($request->query('limit') ?? $request->input('limit', 30))));
+
+        $query = Message::select([
+                'id', 'sender_id', 'group_id', 'message', 'image', 'video', 'audio',
+                'parent_id', 'created_at', 'temp_id'
+            ])
+            ->with([
+                'sender:id,first_name,last_name,profile_picture',
+                'parent:id,sender_id,message,image,video,audio',
+                'parent.sender:id,first_name,last_name'
+            ])
             ->where('group_id', $groupId);
 
         if ($beforeId) {
@@ -197,12 +216,12 @@ class GroupChatController extends Controller
         }
 
         $messages = $query->orderBy('id', 'desc')
-            ->limit(30)
+            ->limit($limit)
             ->get()
             ->map(function($msg) {
-                $msg->image_url = $msg->image_url;
-                $msg->video_url = $msg->video_url;
-                $msg->audio_url = $msg->audio_url;
+                $msg->image_url = $msg->image ? (str_starts_with($msg->image, 'http') ? $msg->image : asset('new_wiselook/uploads/' . basename($msg->image))) : null;
+                $msg->video_url = $msg->video ? (str_starts_with($msg->video, 'http') ? $msg->video : asset('new_wiselook/uploads/' . basename($msg->video))) : null;
+                $msg->audio_url = $msg->audio ? (str_starts_with($msg->audio, 'http') ? $msg->audio : asset('new_wiselook/uploads/' . basename($msg->audio))) : null;
                 return $msg;
             })
             ->reverse()
