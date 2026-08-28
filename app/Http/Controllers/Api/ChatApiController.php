@@ -259,10 +259,11 @@ class ChatApiController extends Controller
                 'parent.sender:id,first_name,last_name'
             ])
             ->where(function($q) use ($userId, $targetId) {
-                $q->where('sender_id', $userId)->where('receiver_id', $targetId);
-            })
-            ->orWhere(function($q) use ($userId, $targetId) {
-                $q->where('sender_id', $targetId)->where('receiver_id', $userId);
+                $q->where(function($sub) use ($userId, $targetId) {
+                    $sub->where('sender_id', $userId)->where('receiver_id', $targetId);
+                })->orWhere(function($sub) use ($userId, $targetId) {
+                    $sub->where('sender_id', $targetId)->where('receiver_id', $userId);
+                });
             });
 
         if ($beforeId) {
