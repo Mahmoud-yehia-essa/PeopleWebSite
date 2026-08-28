@@ -251,7 +251,7 @@ class ChatApiController extends Controller
 
         $query = Message::select([
                 'id', 'sender_id', 'receiver_id', 'message', 'image', 'video', 'audio',
-                'parent_id', 'created_at', 'temp_id', 'is_read'
+                'parent_id', 'created_at', 'is_read'
             ])
             ->with([
                 'sender:id,first_name,last_name,profile_picture',

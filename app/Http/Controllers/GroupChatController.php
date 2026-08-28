@@ -202,7 +202,7 @@ class GroupChatController extends Controller
 
         $query = Message::select([
                 'id', 'sender_id', 'group_id', 'message', 'image', 'video', 'audio',
-                'parent_id', 'created_at', 'temp_id'
+                'parent_id', 'created_at'
             ])
             ->with([
                 'sender:id,first_name,last_name,profile_picture',
