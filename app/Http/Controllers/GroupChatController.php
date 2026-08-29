@@ -235,6 +235,10 @@ class GroupChatController extends Controller
      */
     public function sendGroupMessage(Request $request, $groupId)
     {
+        @ini_set('memory_limit', '512M');
+        @ini_set('max_execution_time', '600');
+        @ini_set('max_input_time', '600');
+
         $request->validate([
             'message' => 'required_without_all:image,video,audio|nullable|string',
             'image' => 'nullable|file|max:51200',

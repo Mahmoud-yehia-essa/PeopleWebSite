@@ -86,6 +86,10 @@ class ChatApiController extends Controller
      */
     public function sendMessage(Request $request)
     {
+        @ini_set('memory_limit', '512M');
+        @ini_set('max_execution_time', '600');
+        @ini_set('max_input_time', '600');
+
         $senderId = $request->user() ? $request->user()->id : auth()->id();
 
         $receiverId = $request->input('receiver_id') 

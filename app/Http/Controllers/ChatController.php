@@ -252,6 +252,10 @@ class ChatController extends Controller
     // حفظ الرسالة الجديدة وبثها عبر الويب سوكيت فوراً
     public function sendMessage(Request $request)
     {
+        @ini_set('memory_limit', '512M');
+        @ini_set('max_execution_time', '600');
+        @ini_set('max_input_time', '600');
+
         $senderId = Auth::id() ?: ($request->user() ? $request->user()->id : null);
         $receiverId = $request->input('receiver_id') 
             ?? $request->input('user_id') 
