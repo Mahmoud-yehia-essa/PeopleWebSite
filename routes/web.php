@@ -33,6 +33,8 @@ Route::middleware(['auth:web,sanctum'])->group(function () {
     Route::post('/messages/mark-all-read', [ChatController::class, 'markAllMessagesRead']);
     Route::match(['delete', 'post'], '/messages/{messageId}', [ChatController::class, 'deleteMessage']);
     Route::post('/messages', [ChatController::class, 'sendMessage']);
+    Route::match(['get', 'post'], '/messages/poll/vote', [\App\Http\Controllers\Api\ChatPollApiController::class, 'vote']);
+    Route::match(['get', 'post'], '/messages/groups/{groupId}/poll/vote', [\App\Http\Controllers\Api\ChatPollApiController::class, 'vote']);
 
     // مسارات المجموعات
     Route::get('/messages/groups/list', [GroupChatController::class, 'fetchGroups']);
@@ -475,3 +477,7 @@ Route::middleware('auth')->group(function () {
 
 
 require __DIR__.'/auth.php';
+
+// مسارات التصويت على استطلاعات الرأي للدردشة العامة
+Route::match(['get', 'post'], '/messages/poll/vote', [\App\Http\Controllers\Api\ChatPollApiController::class, 'vote']);
+Route::match(['get', 'post'], '/messages/groups/{groupId}/poll/vote', [\App\Http\Controllers\Api\ChatPollApiController::class, 'vote']);

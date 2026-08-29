@@ -4,8 +4,10 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use App\Models\User;
-
+use App\Models\Group;
+use App\Models\ChatPoll;
 
 class Message extends Model
 {
@@ -111,5 +113,11 @@ class Message extends Model
     public function parent(): BelongsTo
     {
         return $this->belongsTo(Message::class, 'parent_id');
+    }
+
+    // علاقة الاستطلاع المرتبط بالرسالة
+    public function chatPoll(): HasOne
+    {
+        return $this->hasOne(ChatPoll::class, 'message_id');
     }
 }

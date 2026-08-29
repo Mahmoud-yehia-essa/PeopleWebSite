@@ -414,7 +414,9 @@ class ChatController extends Controller
             $senderToken = $senderUser ? $senderUser->token : null;
 
             $bodyPreview = $messageText;
-            if (empty($bodyPreview)) {
+            if ($bodyPreview && str_starts_with(trim($bodyPreview), '{') && str_contains($bodyPreview, '"question"')) {
+                $bodyPreview = '📊 أرسل استطلاع رأي';
+            } elseif (empty($bodyPreview)) {
                 if ($imagePath) $bodyPreview = '📷 أرسل صورة';
                 elseif ($videoPath) $bodyPreview = '🎥 أرسل فيديو';
                 elseif ($audioPath) $bodyPreview = '🎤 أرسل تسجيلاً صوتياً';

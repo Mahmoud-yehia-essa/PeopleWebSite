@@ -241,7 +241,13 @@ class GroupChatController extends Controller
                 )) {
                     $isLocation = true;
                 }
-                $msg->type = $isLocation ? 'location' : ($isSticker ? 'sticker' : ($isDocument ? 'document' : ($msg->image ? 'image' : ($msg->video ? 'video' : ($msg->audio ? 'voice' : 'text')))));
+                $isPoll = false;
+                if ($msg->message && (
+                    (str_starts_with(trim($msg->message), '{') && str_contains($msg->message, '"question"') && str_contains($msg->message, '"options"'))
+                )) {
+                    $isPoll = true;
+                }
+                $msg->type = $isPoll ? 'poll' : ($isLocation ? 'location' : ($isSticker ? 'sticker' : ($isDocument ? 'document' : ($msg->image ? 'image' : ($msg->video ? 'video' : ($msg->audio ? 'voice' : 'text'))))));
                 $msg->image_url = $msg->image ? (str_starts_with($msg->image, 'http') ? $msg->image : asset('new_wiselook/uploads/' . basename($msg->image))) : null;
                 $msg->file_url = $msg->image_url;
                 $msg->video_url = $msg->video ? (str_starts_with($msg->video, 'http') ? $msg->video : asset('new_wiselook/uploads/' . basename($msg->video))) : null;
@@ -478,7 +484,9 @@ class GroupChatController extends Controller
             $senderName = $senderUser ? trim($senderUser->first_name . ' ' . $senderUser->last_name) : 'عضو';
 
             $bodyPreview = $request->message;
-            if ($messageType === 'sticker') {
+            if ($messageType === 'poll' || ($bodyPreview && str_starts_with(trim($bodyPreview), '{') && str_contains($bodyPreview, '"question"'))) {
+                $bodyPreview = '📊 أرسل استطلاع رأي';
+            } elseif ($messageType === 'sticker') {
                 $bodyPreview = '🏷️ أرسل ملصقاً';
             } elseif ($messageType === 'document') {
                 $bodyPreview = '📄 أرسل مستنداً: ' . ($request->message ?: 'ملف');

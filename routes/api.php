@@ -299,3 +299,9 @@ Route::match(['get', 'post'], 'chat/call/initiate', [\App\Http\Controllers\CallC
 Route::match(['get', 'post'], 'messages/call/accept', [\App\Http\Controllers\CallController::class, 'acceptCall']);
 Route::match(['get', 'post'], 'messages/call/decline', [\App\Http\Controllers\CallController::class, 'declineCall']);
 Route::match(['get', 'post'], 'messages/call/end', [\App\Http\Controllers\CallController::class, 'endCall']);
+
+// مسارات التصويت على استطلاعات الرأي في الدردشة الفردية والجماعية
+Route::match(['get', 'post'], 'messages/poll/vote', [\App\Http\Controllers\Api\ChatPollApiController::class, 'vote']);
+Route::match(['get', 'post'], 'messages/groups/{groupId}/poll/vote', [\App\Http\Controllers\Api\ChatPollApiController::class, 'vote']);
+Route::match(['get', 'post'], 'chat/poll/vote', [\App\Http\Controllers\Api\ChatPollApiController::class, 'vote']);
+Route::match(['get', 'post'], 'chat/poll_vote.php', [\App\Http\Controllers\Api\ChatPollApiController::class, 'vote']);
