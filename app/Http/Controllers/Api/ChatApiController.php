@@ -114,12 +114,47 @@ class ChatApiController extends Controller
             ?? '';
 
         $imagePath = null;
-        if ($request->hasFile('image') || $request->hasFile('file') || $request->hasFile('media')) {
+        $isDocument = false;
+        $docOriginalName = null;
+
+        if ($request->hasFile('document')) {
+            $file = $request->file('document');
+            $ext = strtolower($file->getClientOriginalExtension());
+            $docOriginalName = $file->getClientOriginalName();
+            $docName = date('YmdHis') . '_' . uniqid() . '_doc.' . ($ext ?: 'pdf');
+            $file->move(public_path('new_wiselook/uploads'), $docName);
+            $imagePath = $docName;
+            $isDocument = true;
+            if (empty($messageText)) {
+                $messageText = $docOriginalName;
+            }
+        } elseif ($request->hasFile('image') || $request->hasFile('file') || $request->hasFile('media')) {
             $file = $request->file('image') ?? $request->file('file') ?? $request->file('media');
-            if (str_starts_with($file->getMimeType(), 'image/')) {
-                $imageName = date('YmdHis') . '_api_msg.' . $file->getClientOriginalExtension();
+            $ext = strtolower($file->getClientOriginalExtension());
+            $mime = $file->getMimeType();
+            $docExtensions = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'zip', 'rar', 'csv', 'tar', 'gz'];
+            if (in_array($ext, $docExtensions) || $request->input('type') === 'document') {
+                $docOriginalName = $file->getClientOriginalName();
+                $docName = date('YmdHis') . '_' . uniqid() . '_doc.' . ($ext ?: 'pdf');
+                $file->move(public_path('new_wiselook/uploads'), $docName);
+                $imagePath = $docName;
+                $isDocument = true;
+                if (empty($messageText)) {
+                    $messageText = $docOriginalName;
+                }
+            } elseif (str_starts_with($mime, 'image/')) {
+                $imageName = date('YmdHis') . '_api_msg.' . ($ext ?: 'jpg');
                 $file->move(public_path('new_wiselook/uploads'), $imageName);
                 $imagePath = $imageName;
+            } else {
+                $docOriginalName = $file->getClientOriginalName();
+                $docName = date('YmdHis') . '_' . uniqid() . '_doc.' . ($ext ?: 'bin');
+                $file->move(public_path('new_wiselook/uploads'), $docName);
+                $imagePath = $docName;
+                $isDocument = true;
+                if (empty($messageText)) {
+                    $messageText = $docOriginalName;
+                }
             }
         } elseif ($request->filled('image') && is_string($request->input('image'))) {
             $imagePath = $request->input('image');
@@ -242,12 +277,17 @@ class ChatApiController extends Controller
 
         $messageType = $request->input('type');
         if (empty($messageType)) {
-            $messageType = $imagePath ? 'image' : ($videoPath ? 'video' : ($audioPath ? 'voice' : 'text'));
+            if ($isDocument) {
+                $messageType = 'document';
+            } else {
+                $messageType = $imagePath ? 'image' : ($videoPath ? 'video' : ($audioPath ? 'voice' : 'text'));
+            }
         }
         $message->type = $messageType;
 
         $message->load(['sender', 'parent.sender']);
         $message->image_url = $message->image ? (str_starts_with($message->image, 'http') ? $message->image : asset('new_wiselook/uploads/' . basename($message->image))) : null;
+        $message->file_url = $message->image_url;
         $message->video_url = $message->video ? (str_starts_with($message->video, 'http') ? $message->video : asset('new_wiselook/uploads/' . basename($message->video))) : null;
         $message->thumbnail_url = $message->video ? asset('new_wiselook/uploads/' . pathinfo($message->video, PATHINFO_FILENAME) . '_thumb.jpg') : null;
         $message->audio_url = $message->audio ? (str_starts_with($message->audio, 'http') ? $message->audio : asset('new_wiselook/uploads/' . basename($message->audio))) : null;
@@ -273,6 +313,8 @@ class ChatApiController extends Controller
             $bodyPreview = $messageText;
             if ($messageType === 'sticker') {
                 $bodyPreview = '🏷️ أرسل ملصقاً';
+            } elseif ($messageType === 'document') {
+                $bodyPreview = '📄 أرسل مستنداً: ' . ($messageText ?: 'ملف');
             } elseif (empty($bodyPreview)) {
                 if ($imagePath) $bodyPreview = '📷 أرسل صورة';
                 elseif ($videoPath) $bodyPreview = '🎥 أرسل فيديو';
@@ -366,7 +408,22 @@ class ChatApiController extends Controller
             ->limit($limit)
             ->get()
             ->map(function($msg) {
+                $isSticker = false;
+                $isDocument = false;
+                $docExtensions = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'zip', 'rar', 'csv', 'tar', 'gz'];
+                if ($msg->image) {
+                    if (str_contains($msg->image, 'Animated-Fluent-Emojis') || str_contains($msg->image, '_stk_') || str_contains($msg->image, 'stickers/') || str_contains($msg->image, 'githubusercontent.com')) {
+                        $isSticker = true;
+                    } else {
+                        $ext = strtolower(pathinfo($msg->image, PATHINFO_EXTENSION));
+                        if (in_array($ext, $docExtensions) || str_contains($msg->image, '_doc.') || str_contains($msg->image, '_file.')) {
+                            $isDocument = true;
+                        }
+                    }
+                }
+                $msg->type = $isSticker ? 'sticker' : ($isDocument ? 'document' : ($msg->image ? 'image' : ($msg->video ? 'video' : ($msg->audio ? 'voice' : 'text'))));
                 $msg->image_url = $msg->image ? (str_starts_with($msg->image, 'http') ? $msg->image : asset('new_wiselook/uploads/' . basename($msg->image))) : null;
+                $msg->file_url = $msg->image_url;
                 $msg->video_url = $msg->video ? (str_starts_with($msg->video, 'http') ? $msg->video : asset('new_wiselook/uploads/' . basename($msg->video))) : null;
                 $msg->thumbnail_url = $msg->video ? asset('new_wiselook/uploads/' . pathinfo($msg->video, PATHINFO_FILENAME) . '_thumb.jpg') : null;
                 $msg->audio_url = $msg->audio ? (str_starts_with($msg->audio, 'http') ? $msg->audio : asset('new_wiselook/uploads/' . basename($msg->audio))) : null;
