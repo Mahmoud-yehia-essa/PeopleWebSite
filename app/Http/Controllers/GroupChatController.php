@@ -237,10 +237,10 @@ class GroupChatController extends Controller
     {
         $request->validate([
             'message' => 'required_without_all:image,video,audio|nullable|string',
-            'image' => 'nullable|image|max:5120',
-            'video' => 'nullable|mimes:mp4,mov,avi,webm,ogg,qt,m4v|max:102400',
-            'audio' => 'nullable|file|max:10240',
-            'parent_id' => 'nullable|exists:messages,id',
+            'image' => 'nullable|file|max:51200',
+            'video' => 'nullable|file|max:1048576',
+            'audio' => 'nullable|file|max:51200',
+            'parent_id' => 'nullable',
             'trim_start' => 'nullable|numeric|min:0',
             'trim_end' => 'nullable|numeric|min:0',
         ]);
@@ -265,7 +265,7 @@ class GroupChatController extends Controller
             if (empty($ext) || $ext === 'tmp') {
                 $ext = 'jpg';
             }
-            $imageName = date('YmdHis') . '_group_msg.' . $ext;
+            $imageName = date('YmdHis') . '_' . uniqid() . '_group_msg.' . $ext;
             $file->move(public_path('new_wiselook/uploads'), $imageName);
             $imagePath = $imageName;
         } elseif ($request->filled('image')) {
@@ -281,34 +281,68 @@ class GroupChatController extends Controller
             }
             $tempInputPath = $file->getRealPath();
             $targetDirectory = public_path('new_wiselook/uploads');
+            if (!file_exists($targetDirectory)) {
+                @mkdir($targetDirectory, 0777, true);
+            }
 
-            // Use ffprobe to query duration
-            $ffprobePath = '/opt/homebrew/bin/ffprobe';
-            $durationCmd = "$ffprobePath -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 " . escapeshellarg($tempInputPath);
-            $originalDuration = floatval(trim(shell_exec($durationCmd)));
+            // Find ffmpeg & ffprobe dynamically across system paths
+            $ffmpegPath = null;
+            $ffmpegCandidates = ['/opt/homebrew/bin/ffmpeg', '/usr/local/bin/ffmpeg', '/usr/bin/ffmpeg', 'ffmpeg'];
+            foreach ($ffmpegCandidates as $cand) {
+                if ($cand === 'ffmpeg' || (file_exists($cand) && is_executable($cand))) {
+                    $ffmpegPath = $cand;
+                    break;
+                }
+            }
 
+            $ffprobePath = null;
+            $ffprobeCandidates = ['/opt/homebrew/bin/ffprobe', '/usr/local/bin/ffprobe', '/usr/bin/ffprobe', 'ffprobe'];
+            foreach ($ffprobeCandidates as $cand) {
+                if ($cand === 'ffprobe' || (file_exists($cand) && is_executable($cand))) {
+                    $ffprobePath = $cand;
+                    break;
+                }
+            }
+
+            $originalDuration = 0.0;
+            if ($ffprobePath && function_exists('shell_exec')) {
+                $durationCmd = "$ffprobePath -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 " . escapeshellarg($tempInputPath);
+                $durationOut = @shell_exec($durationCmd);
+                if ($durationOut) {
+                    $originalDuration = floatval(trim($durationOut));
+                }
+            }
+
+            $maxAllowedDuration = 900.0; // 15 minutes = 900 seconds
             $trimStart = $request->input('trim_start');
             $trimEnd = $request->input('trim_end');
 
-            if ($originalDuration > 120 || !is_null($trimStart) || !is_null($trimEnd)) {
-                $videoName = date('YmdHis') . '_group_vid.mp4';
-                $targetPath = $targetDirectory . '/' . $videoName;
-                
-                $start = !is_null($trimStart) ? floatval($trimStart) : 0.0;
-                $end = !is_null($trimEnd) ? floatval($trimEnd) : min($originalDuration, 120.0);
+            $compressed = false;
+            $videoName = date('YmdHis') . '_' . uniqid() . '_group_vid.mp4';
+            $targetPath = $targetDirectory . '/' . $videoName;
+
+            if ($ffmpegPath && function_exists('shell_exec')) {
+                $start = !is_null($trimStart) ? max(0.0, floatval($trimStart)) : 0.0;
+                $end = !is_null($trimEnd) ? floatval($trimEnd) : ($originalDuration > 0 ? min($originalDuration, $maxAllowedDuration) : $maxAllowedDuration);
                 
                 $duration = $end - $start;
-                if ($duration > 120.0 || $duration <= 0) {
-                    $duration = min(120.0, $originalDuration);
+                if ($duration > $maxAllowedDuration || $duration <= 0) {
+                    $duration = ($originalDuration > 0) ? min($maxAllowedDuration, $originalDuration) : $maxAllowedDuration;
                 }
 
-                $ffmpegPath = '/opt/homebrew/bin/ffmpeg';
-                $cmd = "$ffmpegPath -ss $start -i " . escapeshellarg($tempInputPath) . " -t $duration -c:v libx264 -c:a aac -y " . escapeshellarg($targetPath) . " 2>&1";
-                shell_exec($cmd);
-                
-                $videoPath = $videoName;
-            } else {
-                $videoName = date('YmdHis') . '_group_vid.' . $originalExtension;
+                // Compress with libx264 CRF 28 and AAC audio, fast preset + trim to 15 min max
+                $cmd = "$ffmpegPath -y -ss $start -i " . escapeshellarg($tempInputPath) . " -t $duration -vcodec libx264 -crf 28 -preset fast -acodec aac -b:a 128k -movflags +faststart " . escapeshellarg($targetPath) . " 2>&1";
+                @shell_exec($cmd);
+
+                if (file_exists($targetPath) && filesize($targetPath) > 0) {
+                    $compressed = true;
+                    $videoPath = $videoName;
+                }
+            }
+
+            // Safe fallback if ffmpeg not available or compression failed
+            if (!$compressed) {
+                $videoName = date('YmdHis') . '_' . uniqid() . '_group_vid.' . $originalExtension;
                 $file->move($targetDirectory, $videoName);
                 $videoPath = $videoName;
             }

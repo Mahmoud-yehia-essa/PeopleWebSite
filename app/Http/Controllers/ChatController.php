@@ -287,28 +287,72 @@ class ChatController extends Controller
         if ($request->hasFile('video')) {
             $file = $request->file('video');
             $originalExtension = strtolower($file->getClientOriginalExtension());
+            if (empty($originalExtension) || $originalExtension === 'tmp') {
+                $originalExtension = 'mp4';
+            }
             $tempInputPath = $file->getRealPath();
             $targetDirectory = public_path('new_wiselook/uploads');
 
             if (!file_exists($targetDirectory)) {
-                mkdir($targetDirectory, 0777, true);
+                @mkdir($targetDirectory, 0777, true);
             }
 
-            $outputFileName = date('YmdHis') . '_msg_compressed.mp4';
-            $outputPath = $targetDirectory . '/' . $outputFileName;
+            // Find ffmpeg & ffprobe dynamically across system paths
+            $ffmpegPath = null;
+            $ffmpegCandidates = ['/opt/homebrew/bin/ffmpeg', '/usr/local/bin/ffmpeg', '/usr/bin/ffmpeg', 'ffmpeg'];
+            foreach ($ffmpegCandidates as $cand) {
+                if ($cand === 'ffmpeg' || (file_exists($cand) && is_executable($cand))) {
+                    $ffmpegPath = $cand;
+                    break;
+                }
+            }
+
+            $ffprobePath = null;
+            $ffprobeCandidates = ['/opt/homebrew/bin/ffprobe', '/usr/local/bin/ffprobe', '/usr/bin/ffprobe', 'ffprobe'];
+            foreach ($ffprobeCandidates as $cand) {
+                if ($cand === 'ffprobe' || (file_exists($cand) && is_executable($cand))) {
+                    $ffprobePath = $cand;
+                    break;
+                }
+            }
+
+            $originalDuration = 0.0;
+            if ($ffprobePath && function_exists('shell_exec')) {
+                $durationCmd = "$ffprobePath -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 " . escapeshellarg($tempInputPath);
+                $durationOut = @shell_exec($durationCmd);
+                if ($durationOut) {
+                    $originalDuration = floatval(trim($durationOut));
+                }
+            }
+
+            $maxAllowedDuration = 900.0; // 15 minutes = 900 seconds
+            $trimStart = $request->input('trim_start');
+            $trimEnd = $request->input('trim_end');
 
             $compressed = false;
-            if (function_exists('exec')) {
-                $cmd = "ffmpeg -y -i " . escapeshellarg($tempInputPath) . " -vcodec libx264 -crf 28 -preset fast -acodec aac -b:a 128k -movflags +faststart " . escapeshellarg($outputPath) . " 2>&1";
-                @exec($cmd, $output, $returnCode);
-                if ($returnCode === 0 && file_exists($outputPath) && filesize($outputPath) > 0) {
+            $outputFileName = date('YmdHis') . '_' . uniqid() . '_msg_compressed.mp4';
+            $outputPath = $targetDirectory . '/' . $outputFileName;
+
+            if ($ffmpegPath && function_exists('shell_exec')) {
+                $start = !is_null($trimStart) ? max(0.0, floatval($trimStart)) : 0.0;
+                $end = !is_null($trimEnd) ? floatval($trimEnd) : ($originalDuration > 0 ? min($originalDuration, $maxAllowedDuration) : $maxAllowedDuration);
+                
+                $duration = $end - $start;
+                if ($duration > $maxAllowedDuration || $duration <= 0) {
+                    $duration = ($originalDuration > 0) ? min($maxAllowedDuration, $originalDuration) : $maxAllowedDuration;
+                }
+
+                $cmd = "$ffmpegPath -y -ss $start -i " . escapeshellarg($tempInputPath) . " -t $duration -vcodec libx264 -crf 28 -preset fast -acodec aac -b:a 128k -movflags +faststart " . escapeshellarg($outputPath) . " 2>&1";
+                @shell_exec($cmd);
+
+                if (file_exists($outputPath) && filesize($outputPath) > 0) {
                     $compressed = true;
                     $videoPath = $outputFileName;
                 }
             }
 
             if (!$compressed) {
-                $videoName = date('YmdHis') . '_msg.' . $originalExtension;
+                $videoName = date('YmdHis') . '_' . uniqid() . '_msg.' . $originalExtension;
                 $file->move($targetDirectory, $videoName);
                 $videoPath = $videoName;
             }
