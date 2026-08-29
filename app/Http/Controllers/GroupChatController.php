@@ -232,7 +232,16 @@ class GroupChatController extends Controller
                         }
                     }
                 }
-                $msg->type = $isSticker ? 'sticker' : ($isDocument ? 'document' : ($msg->image ? 'image' : ($msg->video ? 'video' : ($msg->audio ? 'voice' : 'text'))));
+                $isLocation = false;
+                if ($msg->message && (
+                    str_contains($msg->message, 'maps.google.com') ||
+                    str_contains($msg->message, 'google.com/maps') ||
+                    str_contains($msg->message, 'geo:') ||
+                    (str_contains($msg->message, '"latitude"') && str_contains($msg->message, '"longitude"'))
+                )) {
+                    $isLocation = true;
+                }
+                $msg->type = $isLocation ? 'location' : ($isSticker ? 'sticker' : ($isDocument ? 'document' : ($msg->image ? 'image' : ($msg->video ? 'video' : ($msg->audio ? 'voice' : 'text')))));
                 $msg->image_url = $msg->image ? (str_starts_with($msg->image, 'http') ? $msg->image : asset('new_wiselook/uploads/' . basename($msg->image))) : null;
                 $msg->file_url = $msg->image_url;
                 $msg->video_url = $msg->video ? (str_starts_with($msg->video, 'http') ? $msg->video : asset('new_wiselook/uploads/' . basename($msg->video))) : null;
@@ -473,6 +482,8 @@ class GroupChatController extends Controller
                 $bodyPreview = '🏷️ أرسل ملصقاً';
             } elseif ($messageType === 'document') {
                 $bodyPreview = '📄 أرسل مستنداً: ' . ($request->message ?: 'ملف');
+            } elseif ($messageType === 'location' || str_contains($bodyPreview ?? '', 'maps.google.com') || str_contains($bodyPreview ?? '', '"latitude"')) {
+                $bodyPreview = '📍 أرسل موقعاً جغرافياً';
             } elseif (empty($bodyPreview)) {
                 if ($imagePath) $bodyPreview = '📷 أرسل صورة';
                 elseif ($videoPath) $bodyPreview = '🎥 أرسل فيديو';
