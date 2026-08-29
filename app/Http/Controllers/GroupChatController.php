@@ -274,7 +274,8 @@ class GroupChatController extends Controller
             $file->move(public_path('new_wiselook/uploads'), $imageName);
             $imagePath = $imageName;
         } elseif ($request->filled('image')) {
-            $imagePath = basename($request->input('image'));
+            $rawImg = $request->input('image');
+            $imagePath = (str_starts_with($rawImg, 'http://') || str_starts_with($rawImg, 'https://')) ? $rawImg : basename($rawImg);
         }
 
         $videoPath = null;
@@ -394,7 +395,13 @@ class GroupChatController extends Controller
         $message->load(['sender', 'parent.sender']);
 
         // Prepare return assets URLs
-        $message->image_url = $message->image ? asset('new_wiselook/uploads/' . basename($message->image)) : null;
+        $messageType = $request->input('type');
+        if (empty($messageType)) {
+            $messageType = $imagePath ? 'image' : ($videoPath ? 'video' : ($audioPath ? 'voice' : 'text'));
+        }
+        $message->type = $messageType;
+
+        $message->image_url = $message->image ? ((str_starts_with($message->image, 'http://') || str_starts_with($message->image, 'https://')) ? $message->image : asset('new_wiselook/uploads/' . basename($message->image))) : null;
         $message->video_url = $message->video ? asset('new_wiselook/uploads/' . basename($message->video)) : null;
         $message->thumbnail_url = $message->video ? asset('new_wiselook/uploads/' . pathinfo($message->video, PATHINFO_FILENAME) . '_thumb.jpg') : null;
         $message->audio_url = $message->audio ? asset('new_wiselook/uploads/' . basename($message->audio)) : null;
@@ -414,7 +421,9 @@ class GroupChatController extends Controller
             $senderName = $senderUser ? trim($senderUser->first_name . ' ' . $senderUser->last_name) : 'عضو';
 
             $bodyPreview = $request->message;
-            if (empty($bodyPreview)) {
+            if ($messageType === 'sticker') {
+                $bodyPreview = '🏷️ أرسل ملصقاً';
+            } elseif (empty($bodyPreview)) {
                 if ($imagePath) $bodyPreview = '📷 أرسل صورة';
                 elseif ($videoPath) $bodyPreview = '🎥 أرسل فيديو';
                 elseif ($audioPath) $bodyPreview = '🎤 أرسل مقطعاً صوتياً';

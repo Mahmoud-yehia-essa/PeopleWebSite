@@ -121,6 +121,10 @@ class ChatApiController extends Controller
                 $file->move(public_path('new_wiselook/uploads'), $imageName);
                 $imagePath = $imageName;
             }
+        } elseif ($request->filled('image') && is_string($request->input('image'))) {
+            $imagePath = $request->input('image');
+        } elseif ($request->filled('image_url') && is_string($request->input('image_url'))) {
+            $imagePath = $request->input('image_url');
         }
 
         $videoPath = null;
@@ -236,6 +240,12 @@ class ChatApiController extends Controller
         $message->uuid = $tempId;
         $message->local_id = $tempId;
 
+        $messageType = $request->input('type');
+        if (empty($messageType)) {
+            $messageType = $imagePath ? 'image' : ($videoPath ? 'video' : ($audioPath ? 'voice' : 'text'));
+        }
+        $message->type = $messageType;
+
         $message->load(['sender', 'parent.sender']);
         $message->image_url = $message->image ? (str_starts_with($message->image, 'http') ? $message->image : asset('new_wiselook/uploads/' . basename($message->image))) : null;
         $message->video_url = $message->video ? (str_starts_with($message->video, 'http') ? $message->video : asset('new_wiselook/uploads/' . basename($message->video))) : null;
@@ -261,7 +271,9 @@ class ChatApiController extends Controller
             $senderToken = $senderUser ? $senderUser->token : null;
 
             $bodyPreview = $messageText;
-            if (empty($bodyPreview)) {
+            if ($messageType === 'sticker') {
+                $bodyPreview = '🏷️ أرسل ملصقاً';
+            } elseif (empty($bodyPreview)) {
                 if ($imagePath) $bodyPreview = '📷 أرسل صورة';
                 elseif ($videoPath) $bodyPreview = '🎥 أرسل فيديو';
                 elseif ($audioPath) $bodyPreview = '🎤 أرسل تسجيلاً صوتياً';
