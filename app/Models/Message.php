@@ -5,9 +5,11 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use App\Models\User;
 use App\Models\Group;
 use App\Models\ChatPoll;
+use App\Models\MessageReaction;
 
 class Message extends Model
 {
@@ -119,5 +121,11 @@ class Message extends Model
     public function chatPoll(): HasOne
     {
         return $this->hasOne(ChatPoll::class, 'message_id');
+    }
+
+    // علاقة التفاعلات المرتبطة بالرسالة
+    public function reactions(): HasMany
+    {
+        return $this->hasMany(MessageReaction::class, 'message_id')->with('user:id,first_name,last_name,profile_picture');
     }
 }

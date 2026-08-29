@@ -87,6 +87,8 @@ class GroupMessageSent implements ShouldBroadcastNow
             'created_at' => $this->message->created_at ? $this->message->created_at->toIso8601String() : null,
             'timestamp' => $this->message->created_at ? $this->message->created_at->timestamp : null,
             'parent' => $parentData,
+            'reactions' => [],
+            'reactions_summary' => [],
         ];
     }
 }

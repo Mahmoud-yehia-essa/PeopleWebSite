@@ -120,6 +120,8 @@ class MessageSent implements ShouldBroadcastNow
             'timestamp' => $this->message->created_at ? $this->message->created_at->timestamp : null,
             'createdAt' => $this->message->created_at ? $this->message->created_at->timestamp * 1000 : null,
             'parent' => $parentData,
+            'reactions' => [],
+            'reactions_summary' => [],
         ];
     }
 }

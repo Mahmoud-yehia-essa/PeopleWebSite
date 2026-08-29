@@ -35,6 +35,9 @@ Route::middleware(['auth:web,sanctum'])->group(function () {
     Route::post('/messages', [ChatController::class, 'sendMessage']);
     Route::match(['get', 'post'], '/messages/poll/vote', [\App\Http\Controllers\Api\ChatPollApiController::class, 'vote']);
     Route::match(['get', 'post'], '/messages/groups/{groupId}/poll/vote', [\App\Http\Controllers\Api\ChatPollApiController::class, 'vote']);
+    Route::match(['get', 'post'], '/messages/{messageId}/reaction', [\App\Http\Controllers\Api\MessageReactionApiController::class, 'toggleReaction']);
+    Route::match(['get', 'post'], '/messages/{messageId}/reactions', [\App\Http\Controllers\Api\MessageReactionApiController::class, 'getReactions']);
+    Route::match(['get', 'post'], '/messages/react', [\App\Http\Controllers\Api\MessageReactionApiController::class, 'toggleReaction']);
 
     // مسارات المجموعات
     Route::get('/messages/groups/list', [GroupChatController::class, 'fetchGroups']);
@@ -481,3 +484,6 @@ require __DIR__.'/auth.php';
 // مسارات التصويت على استطلاعات الرأي للدردشة العامة
 Route::match(['get', 'post'], '/messages/poll/vote', [\App\Http\Controllers\Api\ChatPollApiController::class, 'vote']);
 Route::match(['get', 'post'], '/messages/groups/{groupId}/poll/vote', [\App\Http\Controllers\Api\ChatPollApiController::class, 'vote']);
+    Route::match(['get', 'post'], '/messages/{messageId}/reaction', [\App\Http\Controllers\Api\MessageReactionApiController::class, 'toggleReaction']);
+    Route::match(['get', 'post'], '/messages/{messageId}/reactions', [\App\Http\Controllers\Api\MessageReactionApiController::class, 'getReactions']);
+    Route::match(['get', 'post'], '/messages/react', [\App\Http\Controllers\Api\MessageReactionApiController::class, 'toggleReaction']);

@@ -392,7 +392,8 @@ class ChatApiController extends Controller
             ->with([
                 'sender:id,first_name,last_name,profile_picture',
                 'parent:id,sender_id,message,image,video,audio',
-                'parent.sender:id,first_name,last_name'
+                'parent.sender:id,first_name,last_name',
+                'reactions.user:id,first_name,last_name,profile_picture'
             ])
             ->where(function($q) use ($userId, $targetId) {
                 $q->where(function($sub) use ($userId, $targetId) {
@@ -438,6 +439,24 @@ class ChatApiController extends Controller
                 $msg->video_url = $msg->video ? (str_starts_with($msg->video, 'http') ? $msg->video : asset('new_wiselook/uploads/' . basename($msg->video))) : null;
                 $msg->thumbnail_url = $msg->video ? asset('new_wiselook/uploads/' . pathinfo($msg->video, PATHINFO_FILENAME) . '_thumb.jpg') : null;
                 $msg->audio_url = $msg->audio ? (str_starts_with($msg->audio, 'http') ? $msg->audio : asset('new_wiselook/uploads/' . basename($msg->audio))) : null;
+                $reactionsSummary = [];
+                if ($msg->relationLoaded('reactions')) {
+                    $grouped = [];
+                    foreach ($msg->reactions as $r) {
+                        $em = $r->reaction;
+                        if (!isset($grouped[$em])) {
+                            $grouped[$em] = ['reaction' => $em, 'count' => 0, 'user_ids' => [], 'reacted_by_me' => false];
+                        }
+                        $grouped[$em]['count']++;
+                        $grouped[$em]['user_ids'][] = (string)$r->user_id;
+                        if ((string)$r->user_id === (string)$userId) {
+                            $grouped[$em]['reacted_by_me'] = true;
+                        }
+                    }
+                    $reactionsSummary = array_values($grouped);
+                }
+                $msg->reactions = $reactionsSummary;
+                $msg->reactions_summary = $reactionsSummary;
                 return $msg;
             })
             ->reverse()

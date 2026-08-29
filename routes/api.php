@@ -305,3 +305,9 @@ Route::match(['get', 'post'], 'messages/poll/vote', [\App\Http\Controllers\Api\C
 Route::match(['get', 'post'], 'messages/groups/{groupId}/poll/vote', [\App\Http\Controllers\Api\ChatPollApiController::class, 'vote']);
 Route::match(['get', 'post'], 'chat/poll/vote', [\App\Http\Controllers\Api\ChatPollApiController::class, 'vote']);
 Route::match(['get', 'post'], 'chat/poll_vote.php', [\App\Http\Controllers\Api\ChatPollApiController::class, 'vote']);
+
+// مسارات التفاعل بالإيموجي على الرسائل (WhatsApp-Style Message Reactions)
+Route::match(['get', 'post'], 'messages/{messageId}/reaction', [\App\Http\Controllers\Api\MessageReactionApiController::class, 'toggleReaction']);
+Route::match(['get', 'post'], 'messages/{messageId}/reactions', [\App\Http\Controllers\Api\MessageReactionApiController::class, 'getReactions']);
+Route::match(['get', 'post'], 'messages/react', [\App\Http\Controllers\Api\MessageReactionApiController::class, 'toggleReaction']);
+Route::match(['get', 'post'], 'chat/reaction.php', [\App\Http\Controllers\Api\MessageReactionApiController::class, 'toggleReaction']);
