@@ -102,7 +102,7 @@ class ChatPollApiController extends Controller
         // 1. Ensure ChatPoll & Options exist (auto-provision if needed from message JSON)
         $poll = $message->chatPoll;
         if (!$poll) {
-            $poll = $this->provisionPollFromMessage($message, $request->input('poll_data'));
+            $poll = $this->provisionPollFromMessage($message, $request->input('poll_data'), $user->id);
         }
 
         if (!$poll) {
@@ -259,15 +259,19 @@ class ChatPollApiController extends Controller
     /**
      * Auto-create ChatPoll and ChatPollOptions from message content or incoming payload.
      */
-    private function provisionPollFromMessage(Message $message, $providedData = null): ?ChatPoll
+    private function provisionPollFromMessage(Message $message, $providedData = null, $votingUserId = null): ?ChatPoll
     {
         $rawText = $message->message;
-        $data = is_array($providedData) ? $providedData : null;
+        $data = null;
 
-        if (!$data && is_string($rawText) && str_starts_with(trim($rawText), '{')) {
+        if (is_string($rawText) && str_starts_with(trim($rawText), '{')) {
             try {
                 $data = json_decode(trim($rawText), true);
             } catch (\Throwable $e) {}
+        }
+
+        if (!is_array($data) && is_array($providedData)) {
+            $data = $providedData;
         }
 
         if (!is_array($data)) {
@@ -309,10 +313,10 @@ class ChatPollApiController extends Controller
                 'vote_count'   => 0,
             ]);
 
-            // If initial voters exist in the payload, seed them safely
+            // If initial voters exist from previous records, seed other users only (not the active voter to prevent auto-toggle cancel)
             if (isset($opt['votes']) && is_array($opt['votes'])) {
                 foreach ($opt['votes'] as $vUserId) {
-                    if ($vUserId && is_numeric($vUserId)) {
+                    if ($vUserId && is_numeric($vUserId) && ($votingUserId === null || (int)$vUserId !== (int)$votingUserId)) {
                         ChatPollVote::firstOrCreate([
                             'chat_poll_id'        => $poll->id,
                             'chat_poll_option_id' => $createdOption->id,
