@@ -360,6 +360,15 @@ class ChatController extends Controller
                 $file->move($targetDirectory, $videoName);
                 $videoPath = $videoName;
             }
+
+            // Generate Video Thumbnail Frame (.jpg)
+            if ($ffmpegPath && $videoPath && function_exists('shell_exec')) {
+                $savedVideoFullPath = $targetDirectory . '/' . $videoPath;
+                $thumbName = pathinfo($videoPath, PATHINFO_FILENAME) . '_thumb.jpg';
+                $thumbFullPath = $targetDirectory . '/' . $thumbName;
+                $thumbCmd = "$ffmpegPath -y -ss 00:00:01 -i " . escapeshellarg($savedVideoFullPath) . " -vframes 1 -q:v 2 " . escapeshellarg($thumbFullPath) . " 2>&1";
+                @shell_exec($thumbCmd);
+            }
         }
 
         $audioPath = null;
@@ -383,6 +392,7 @@ class ChatController extends Controller
         $message->load(['sender', 'parent.sender']);
         $message->image_url = $message->image ? (str_starts_with($message->image, 'http') ? $message->image : asset('new_wiselook/uploads/' . basename($message->image))) : null;
         $message->video_url = $message->video ? (str_starts_with($message->video, 'http') ? $message->video : asset('new_wiselook/uploads/' . basename($message->video))) : null;
+        $message->thumbnail_url = $message->video ? asset('new_wiselook/uploads/' . pathinfo($message->video, PATHINFO_FILENAME) . '_thumb.jpg') : null;
         $message->audio_url = $message->audio ? (str_starts_with($message->audio, 'http') ? $message->audio : asset('new_wiselook/uploads/' . basename($message->audio))) : null;
 
         // البث الفوري عبر Reverb للتطبيق والويب

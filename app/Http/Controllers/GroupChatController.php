@@ -350,6 +350,15 @@ class GroupChatController extends Controller
                 $file->move($targetDirectory, $videoName);
                 $videoPath = $videoName;
             }
+
+            // Generate Video Thumbnail Frame (.jpg)
+            if ($ffmpegPath && $videoPath && function_exists('shell_exec')) {
+                $savedVideoFullPath = $targetDirectory . '/' . $videoPath;
+                $thumbName = pathinfo($videoPath, PATHINFO_FILENAME) . '_thumb.jpg';
+                $thumbFullPath = $targetDirectory . '/' . $thumbName;
+                $thumbCmd = "$ffmpegPath -y -ss 00:00:01 -i " . escapeshellarg($savedVideoFullPath) . " -vframes 1 -q:v 2 " . escapeshellarg($thumbFullPath) . " 2>&1";
+                @shell_exec($thumbCmd);
+            }
         } elseif ($request->filled('video')) {
             $videoPath = basename($request->input('video'));
         }
@@ -383,17 +392,18 @@ class GroupChatController extends Controller
         // Load relationships
         $message->load(['sender', 'parent.sender']);
 
+        // Prepare return assets URLs
+        $message->image_url = $message->image ? asset('new_wiselook/uploads/' . basename($message->image)) : null;
+        $message->video_url = $message->video ? asset('new_wiselook/uploads/' . basename($message->video)) : null;
+        $message->thumbnail_url = $message->video ? asset('new_wiselook/uploads/' . pathinfo($message->video, PATHINFO_FILENAME) . '_thumb.jpg') : null;
+        $message->audio_url = $message->audio ? asset('new_wiselook/uploads/' . basename($message->audio)) : null;
+
         // Broadcast to all group members in real-time
         try {
             event(new GroupMessageSent($message, $members));
         } catch (\Throwable $e) {
             \Illuminate\Support\Facades\Log::warning('Reverb Broadcast error in sendGroupMessage: ' . $e->getMessage());
         }
-
-        // Prepare return assets URLs
-        $message->image_url = $message->image ? asset('new_wiselook/uploads/' . basename($message->image)) : null;
-        $message->video_url = $message->video ? asset('new_wiselook/uploads/' . basename($message->video)) : null;
-        $message->audio_url = $message->audio ? asset('new_wiselook/uploads/' . basename($message->audio)) : null;
 
         
         // إرسال إشعار FCM سحابي لجميع أعضاء المجموعة المشتركين
