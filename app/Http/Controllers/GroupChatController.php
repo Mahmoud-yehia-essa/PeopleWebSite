@@ -219,7 +219,7 @@ class GroupChatController extends Controller
         $messages = $query->orderBy('id', 'desc')
             ->limit($limit)
             ->get()
-            ->map(function($msg) {
+            ->map(function($msg) use ($userId) {
                 $isSticker = false;
                 $isDocument = false;
                 $docExtensions = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'zip', 'rar', 'csv', 'tar', 'gz'];

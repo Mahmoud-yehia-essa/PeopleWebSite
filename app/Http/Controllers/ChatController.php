@@ -124,7 +124,11 @@ class ChatController extends Controller
             ->where('is_read', false)
             ->update(['is_read' => true]);
 
-        $query = Message::with(['sender', 'parent.sender'])
+        $query = Message::with([
+                'sender', 
+                'parent.sender',
+                'reactions.user:id,first_name,last_name,profile_picture'
+            ])
             ->where(function($q) use ($userId, $receiverId) {
                 $q->where('sender_id', $userId)->where('receiver_id', $receiverId);
             })
@@ -139,10 +143,34 @@ class ChatController extends Controller
         $messages = $query->orderBy('id', 'desc')
             ->limit(30)
             ->get()
-            ->map(function($msg) {
+            ->map(function($msg) use ($userId) {
                 $msg->image_url = $msg->image_url;
                 $msg->video_url = $msg->video_url;
                 $msg->audio_url = $msg->audio_url;
+
+                $reactionsSummary = [];
+                if ($msg->relationLoaded('reactions')) {
+                    $grouped = [];
+                    foreach ($msg->reactions as $r) {
+                        $em = $r->reaction;
+                        if (!isset($grouped[$em])) {
+                            $grouped[$em] = [
+                                'reaction'      => $em,
+                                'count'         => 0,
+                                'user_ids'      => [],
+                                'reacted_by_me' => false,
+                            ];
+                        }
+                        $grouped[$em]['count']++;
+                        $grouped[$em]['user_ids'][] = (string)$r->user_id;
+                        if ($userId && (string)$r->user_id === (string)$userId) {
+                            $grouped[$em]['reacted_by_me'] = true;
+                        }
+                    }
+                    $reactionsSummary = array_values($grouped);
+                }
+                $msg->reactions = $reactionsSummary;
+                $msg->reactions_summary = $reactionsSummary;
                 return $msg;
             })
             ->reverse()

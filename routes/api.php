@@ -116,6 +116,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::match(['get', 'post'], 'messages', [ChatApiController::class, 'sendMessage']);
     Route::match(['get', 'post'], 'messages/send', [ChatApiController::class, 'sendMessage']);
     Route::match(['get', 'post'], 'messages/fetch/{receiverId?}', [ChatApiController::class, 'fetchMessages']);
+    Route::match(['get', 'post'], 'messages/{messageId}/reaction', [\App\Http\Controllers\Api\MessageReactionApiController::class, 'toggleReaction']);
+    Route::match(['get', 'post'], 'messages/{messageId}/reactions', [\App\Http\Controllers\Api\MessageReactionApiController::class, 'getReactions']);
+    Route::match(['get', 'post'], 'messages/react', [\App\Http\Controllers\Api\MessageReactionApiController::class, 'toggleReaction']);
     Route::match(['delete', 'post'], 'messages/{messageId}', [ChatApiController::class, 'deleteMessage']);
 
     // Group Chat Endpoints
