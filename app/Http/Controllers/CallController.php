@@ -291,7 +291,7 @@ class CallController extends Controller
     public function initiateGroupCall(Request $request)
     {
         $request->validate([
-            'group_id' => 'required|exists:groups,id',
+            'group_id' => 'required',
         ]);
 
         $caller = $this->resolveCaller($request);
@@ -299,7 +299,7 @@ class CallController extends Controller
             return response()->json(['status' => 'error', 'message' => 'Unauthenticated'], 401);
         }
         $callerId = (int)$caller->id;
-        $groupId = (int) $request->group_id;
+        $groupId = (int) ($request->group_id ?? $request->input('group_id'));
 
         $group = \App\Models\Group::with(['members' => function($q) {
             $q->where('is_active', 1);
@@ -321,10 +321,16 @@ class CallController extends Controller
             return response()->json(['status' => 'error', 'message' => 'لم يتم إعداد مفاتيح Agora بشكل صحيح في الخادم.'], 500);
         }
 
-        $channelName = 'group_call_' . $groupId . '_' . time();
+        // Check if there is already an active group call for this group
+        $activeGroupCall = Cache::get("active_group_call_{$groupId}");
+        if ($activeGroupCall && !empty($activeGroupCall['channel_name'])) {
+            $channelName = $activeGroupCall['channel_name'];
+        } else {
+            $channelName = 'group_call_' . $groupId . '_' . time();
+        }
 
         try {
-            $expireTime = time() + 3600;
+            $expireTime = time() + 7200; // 2 hours expiration
 
             $client = new Agora($appId, $appCertificate);
             $client->setExpiration($expireTime);
@@ -339,31 +345,55 @@ class CallController extends Controller
             if (empty($callerName)) $callerName = $caller->name ?? 'مستخدم';
             $callerAvatar = $caller->avatar_url ?? $caller->profile_picture ?? null;
 
+            // Broadcast to all group members (except caller)
             foreach ($group->members as $member) {
                 if ((int)$member->user_id !== (int)$callerId) {
-                    broadcast(new \App\Events\GroupCallInitiated(
-                        $callerId,
-                        $callerName,
-                        $callerAvatar,
-                        $groupId,
-                        $group->name,
-                        $channelName,
-                        (int)$member->user_id
-                    ));
+                    try {
+                        broadcast(new \App\Events\GroupCallInitiated(
+                            $callerId,
+                            $callerName,
+                            $callerAvatar,
+                            $groupId,
+                            $group->name,
+                            $channelName,
+                            (int)$member->user_id
+                        ));
+                    } catch (\Throwable $e) {}
+
+                    try {
+                        app(\App\Services\FcmNotificationService::class)->sendChatNotification(
+                            (int)$member->user_id,
+                            $group->name,
+                            "📞 مكالمة صوتية جماعية من $callerName",
+                            (int)$callerId,
+                            $callerAvatar,
+                            $caller->token ?? null
+                        );
+                    } catch (\Throwable $e) {}
                 }
             }
 
-            // Record active call for both users
-            $callData = [
+            // Record active group call in Cache
+            $participants = $activeGroupCall['participants'] ?? [];
+            if (!in_array($callerId, $participants)) {
+                $participants[] = $callerId;
+            }
+
+            $groupCallData = [
                 'channel_name' => $channelName,
+                'group_id' => $groupId,
+                'group_name' => $group->name,
                 'caller_id' => $callerId,
-                'receiver_id' => $receiverId,
-                'status' => 'ringing',
-                'timestamp' => time(),
+                'participants' => $participants,
+                'started_at' => $activeGroupCall['started_at'] ?? time(),
             ];
-            Cache::put("active_call_user_{$callerId}", $callData, now()->addMinutes(30));
-            Cache::put("active_call_user_{$receiverId}", $callData, now()->addMinutes(30));
-            Cache::put("active_call_channel_{$channelName}", $callData, now()->addMinutes(60));
+            Cache::put("active_group_call_{$groupId}", $groupCallData, now()->addHours(3));
+            Cache::put("active_call_user_{$callerId}", [
+                'channel_name' => $channelName,
+                'group_id' => $groupId,
+                'type' => 'group',
+                'status' => 'in_call',
+            ], now()->addHours(3));
 
             return response()->json([
                 'status' => 'success',
@@ -372,6 +402,7 @@ class CallController extends Controller
                 'caller_id' => $callerId,
                 'group_id' => $groupId,
                 'group_name' => $group->name,
+                'group_image' => $group->image ?? $group->avatar_url ?? null,
                 'agora_app_id' => $appId
             ]);
         } catch (\Exception $e) {
@@ -385,8 +416,7 @@ class CallController extends Controller
     public function joinGroupCall(Request $request)
     {
         $request->validate([
-            'group_id' => 'required|exists:groups,id',
-            'channel_name' => 'required|string',
+            'group_id' => 'required',
         ]);
 
         $caller = $this->resolveCaller($request);
@@ -394,8 +424,7 @@ class CallController extends Controller
             return response()->json(['status' => 'error', 'message' => 'Unauthenticated'], 401);
         }
         $callerId = (int)$caller->id;
-        $groupId = (int) $request->group_id;
-        $channelName = $request->channel_name;
+        $groupId = (int) ($request->group_id ?? $request->input('group_id'));
 
         $group = \App\Models\Group::with(['members' => function($q) {
             $q->where('is_active', 1);
@@ -405,11 +434,25 @@ class CallController extends Controller
             return response()->json(['status' => 'error', 'message' => 'غير مصرح لك بالانضمام لهذه المكالمة.'], 403);
         }
 
+        $channelName = $request->channel_name ?? $request->input('channel_name');
+        if (!$channelName) {
+            $activeCall = Cache::get("active_group_call_{$groupId}");
+            if ($activeCall && !empty($activeCall['channel_name'])) {
+                $channelName = $activeCall['channel_name'];
+            } else {
+                $channelName = 'group_call_' . $groupId . '_' . time();
+            }
+        }
+
         $appId = env('AGORA_APP_ID');
         $appCertificate = env('AGORA_APP_CERTIFICATE');
 
+        if (!$appId || !$appCertificate) {
+            return response()->json(['status' => 'error', 'message' => 'لم يتم إعداد مفاتيح Agora بشكل صحيح في الخادم.'], 500);
+        }
+
         try {
-            $expireTime = time() + 3600;
+            $expireTime = time() + 7200;
             $client = new Agora($appId, $appCertificate);
             $client->setExpiration($expireTime);
 
@@ -419,17 +462,25 @@ class CallController extends Controller
                 ->setPrivilegeExpire($expireTime);
             $token = RtcToken::buildTokenWithUid($client, $agoraUser);
 
-            // Record active call for both users
-            $callData = [
+            $activeCall = Cache::get("active_group_call_{$groupId}") ?? [
                 'channel_name' => $channelName,
-                'caller_id' => $callerId,
-                'receiver_id' => $receiverId,
-                'status' => 'ringing',
-                'timestamp' => time(),
+                'group_id' => $groupId,
+                'group_name' => $group->name,
+                'started_at' => time(),
+                'participants' => [],
             ];
-            Cache::put("active_call_user_{$callerId}", $callData, now()->addMinutes(30));
-            Cache::put("active_call_user_{$receiverId}", $callData, now()->addMinutes(30));
-            Cache::put("active_call_channel_{$channelName}", $callData, now()->addMinutes(60));
+            $participants = $activeCall['participants'] ?? [];
+            if (!in_array($callerId, $participants)) {
+                $participants[] = $callerId;
+            }
+            $activeCall['participants'] = $participants;
+            Cache::put("active_group_call_{$groupId}", $activeCall, now()->addHours(3));
+            Cache::put("active_call_user_{$callerId}", [
+                'channel_name' => $channelName,
+                'group_id' => $groupId,
+                'type' => 'group',
+                'status' => 'in_call',
+            ], now()->addHours(3));
 
             return response()->json([
                 'status' => 'success',
@@ -438,11 +489,71 @@ class CallController extends Controller
                 'caller_id' => $callerId,
                 'group_id' => $groupId,
                 'group_name' => $group->name,
+                'group_image' => $group->image ?? $group->avatar_url ?? null,
                 'agora_app_id' => $appId
             ]);
         } catch (\Exception $e) {
             return response()->json(['status' => 'error', 'message' => 'فشل توليد رمز الانضمام للمكالمة: ' . $e->getMessage()], 500);
         }
+    }
+
+    /**
+     * Leave an active group call (does not disconnect other participants).
+     */
+    public function leaveGroupCall(Request $request)
+    {
+        $caller = $this->resolveCaller($request);
+        $callerId = $caller ? (int)$caller->id : (int)($request->user_id ?? 0);
+        $groupId = (int) ($request->group_id ?? $request->input('group_id') ?? 0);
+
+        if ($callerId) {
+            Cache::forget("active_call_user_{$callerId}");
+        }
+
+        if ($groupId) {
+            $activeCall = Cache::get("active_group_call_{$groupId}");
+            if ($activeCall) {
+                $participants = array_diff($activeCall['participants'] ?? [], [$callerId]);
+                $activeCall['participants'] = array_values($participants);
+                if (empty($activeCall['participants'])) {
+                    Cache::forget("active_group_call_{$groupId}");
+                } else {
+                    Cache::put("active_group_call_{$groupId}", $activeCall, now()->addHours(3));
+                }
+            }
+        }
+
+        return response()->json(['status' => 'success']);
+    }
+
+    /**
+     * Check if a group currently has an active group call.
+     */
+    public function getActiveGroupCall(Request $request)
+    {
+        $groupId = (int) ($request->group_id ?? $request->input('group_id') ?? 0);
+        if (!$groupId) {
+            return response()->json(['status' => 'error', 'has_active_call' => false], 422);
+        }
+
+        $activeCall = Cache::get("active_group_call_{$groupId}");
+        if ($activeCall && !empty($activeCall['channel_name'])) {
+            return response()->json([
+                'status' => 'success',
+                'has_active_call' => true,
+                'channel_name' => $activeCall['channel_name'],
+                'group_id' => $groupId,
+                'group_name' => $activeCall['group_name'] ?? '',
+                'participants_count' => count($activeCall['participants'] ?? []),
+                'started_at' => $activeCall['started_at'] ?? time(),
+                'agora_app_id' => env('AGORA_APP_ID')
+            ]);
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'has_active_call' => false,
+        ]);
     }
 
     /**
@@ -462,7 +573,7 @@ class CallController extends Controller
         }
 
         try {
-            $expireTime = time() + 3600;
+            $expireTime = time() + 7200;
             $client = new Agora($appId, $appCertificate);
             $client->setExpiration($expireTime);
 
@@ -471,18 +582,6 @@ class CallController extends Controller
                 ->setRole(Roles::RTC_PUBLISHER)
                 ->setPrivilegeExpire($expireTime);
             $token = RtcToken::buildTokenWithUid($client, $agoraUser);
-
-            // Record active call for both users
-            $callData = [
-                'channel_name' => $channelName,
-                'caller_id' => $callerId,
-                'receiver_id' => $receiverId,
-                'status' => 'ringing',
-                'timestamp' => time(),
-            ];
-            Cache::put("active_call_user_{$callerId}", $callData, now()->addMinutes(30));
-            Cache::put("active_call_user_{$receiverId}", $callData, now()->addMinutes(30));
-            Cache::put("active_call_channel_{$channelName}", $callData, now()->addMinutes(60));
 
             return response()->json([
                 'status' => 'success',

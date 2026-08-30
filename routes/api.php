@@ -221,7 +221,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::match(['get', 'post'], 'messages/call/decline', [\App\Http\Controllers\CallController::class, 'declineCall']);
     Route::match(['get', 'post'], 'messages/call/end', [\App\Http\Controllers\CallController::class, 'endCall']);
     Route::match(['get', 'post'], 'messages/call/group/initiate', [\App\Http\Controllers\CallController::class, 'initiateGroupCall']);
+    Route::match(['get', 'post'], 'chat/call/group/initiate', [\App\Http\Controllers\CallController::class, 'initiateGroupCall']);
     Route::match(['get', 'post'], 'messages/call/group/join', [\App\Http\Controllers\CallController::class, 'joinGroupCall']);
+    Route::match(['get', 'post'], 'chat/call/group/join', [\App\Http\Controllers\CallController::class, 'joinGroupCall']);
+    Route::match(['get', 'post'], 'messages/call/group/leave', [\App\Http\Controllers\CallController::class, 'leaveGroupCall']);
+    Route::match(['get', 'post'], 'chat/call/group/leave', [\App\Http\Controllers\CallController::class, 'leaveGroupCall']);
+    Route::match(['get', 'post'], 'messages/call/group/active', [\App\Http\Controllers\CallController::class, 'getActiveGroupCall']);
+    Route::match(['get', 'post'], 'chat/call/group/active', [\App\Http\Controllers\CallController::class, 'getActiveGroupCall']);
     Route::match(['get', 'post'], 'messages/call/token', [\App\Http\Controllers\CallController::class, 'generateToken']);
     Route::match(['get', 'post'], 'chat/call/generate_token.php', [\App\Http\Controllers\CallController::class, 'generateToken']);
 
