@@ -49,6 +49,8 @@ Route::middleware(['auth:web,sanctum'])->group(function () {
     Route::post('/messages/groups/{groupId}/members/add', [GroupChatController::class, 'addMembers']);
     Route::post('/messages/groups/{groupId}/leave', [GroupChatController::class, 'leaveGroup']);
     Route::delete('/messages/groups/{groupId}/delete', [GroupChatController::class, 'deleteGroup']);
+    Route::match(['get', 'post'], '/messages/groups/{groupId}/pin', [GroupChatController::class, 'pinMessage']);
+    Route::match(['get', 'post'], '/messages/groups/{groupId}/unpin', [GroupChatController::class, 'unpinMessage']);
 
     // مسارات إشارات الاتصال الفوري (Agora)
     Route::get('/messages/call/token', [CallController::class, 'generateToken']);

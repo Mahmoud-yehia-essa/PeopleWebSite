@@ -131,6 +131,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('messages/groups/{groupId}/members/add', [GroupChatController::class, 'addMembers']);
     Route::post('messages/groups/{groupId}/leave', [GroupChatController::class, 'leaveGroup']);
     Route::match(['delete', 'post'], 'messages/groups/{groupId}/delete', [GroupChatController::class, 'deleteGroup']);
+    Route::match(['get', 'post'], 'messages/groups/{groupId}/pin', [GroupChatController::class, 'pinMessage']);
+    Route::match(['get', 'post'], 'messages/groups/{groupId}/unpin', [GroupChatController::class, 'unpinMessage']);
 });
 
 

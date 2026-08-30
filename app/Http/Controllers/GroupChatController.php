@@ -8,6 +8,8 @@ use App\Models\GroupsRole;
 use App\Models\Message;
 use App\Models\User;
 use App\Events\GroupMessageSent;
+use App\Events\GroupMessagePinned;
+use App\Events\GroupMessageUnpinned;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -543,7 +545,7 @@ class GroupChatController extends Controller
     public function getGroupDetails($groupId)
     {
         $userId = auth('sanctum')->id() ?? Auth::id();
-        $group = Group::with(['members.user', 'members.role'])->find($groupId);
+        $group = Group::with(['members.user', 'members.role', 'pinnedMessage.sender'])->find($groupId);
 
         if (!$group) {
             return response()->json(['status' => 'error', 'message' => 'المجموعة غير موجودة.'], 404);
@@ -710,6 +712,129 @@ class GroupChatController extends Controller
             'status' => 'success',
             'message' => 'تم إضافة الأعضاء بنجاح.',
             'added_count' => $addedCount
+        ]);
+    }
+    /**
+     * Pin a group message (Creator / Admin only)
+     */
+    public function pinMessage(Request $request, $groupId)
+    {
+        $request->validate([
+            'message_id' => 'required',
+            'duration'   => 'nullable|string|in:24h,7d,30d,forever',
+        ]);
+
+        $userId = auth('sanctum')->id() ?? Auth::id();
+        $group = Group::findOrFail($groupId);
+
+        // Verify creator or admin permissions
+        $isCreator = ((int)$group->created_by_user_id === (int)$userId);
+        $isAdmin = GroupMember::where('group_id', $groupId)
+            ->where('user_id', $userId)
+            ->where('is_active', 1)
+            ->whereIn('role_id', [1, 2])
+            ->exists();
+
+        if (!$isCreator && !$isAdmin) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'عذراً، فقط منشئ المجموعة أو المسؤول يمكنه تثبيت الرسائل.'
+            ], 403);
+        }
+
+        $duration = $request->input('duration', '24h');
+        $pinnedUntil = match ($duration) {
+            '24h' => now()->addHours(24),
+            '7d'  => now()->addDays(7),
+            '30d' => now()->addDays(30),
+            default => null,
+        };
+
+        $messageId = $request->input('message_id');
+        $group->pinned_message_id = $messageId;
+        $group->pinned_by_user_id = $userId;
+        $group->pinned_at = now();
+        $group->pinned_until = $pinnedUntil;
+        $group->save();
+
+        $message = Message::with(['sender', 'parent.sender'])->find($messageId);
+        if ($message) {
+            $message->image_url = $message->image ? (str_starts_with($message->image, 'http') ? $message->image : asset('new_wiselook/uploads/' . basename($message->image))) : null;
+            $message->video_url = $message->video ? (str_starts_with($message->video, 'http') ? $message->video : asset('new_wiselook/uploads/' . basename($message->video))) : null;
+            $message->audio_url = $message->audio ? (str_starts_with($message->audio, 'http') ? $message->audio : asset('new_wiselook/uploads/' . basename($message->audio))) : null;
+        }
+
+        $memberIds = GroupMember::where('group_id', $groupId)
+            ->where('is_active', 1)
+            ->pluck('user_id')
+            ->toArray();
+
+        try {
+            broadcast(new GroupMessagePinned(
+                groupId: $groupId,
+                pinnedMessageId: $messageId,
+                pinnedMessage: $message,
+                pinnedBy: $userId,
+                memberIds: $memberIds
+            ));
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('Broadcast error in pinMessage: ' . $e->getMessage());
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'تم تثبيت الرسالة بنجاح',
+            'pinned_message_id' => $messageId,
+            'pinned_message' => $message,
+            'pinned_until' => $pinnedUntil,
+        ]);
+    }
+
+    /**
+     * Unpin a group message (Creator / Admin only)
+     */
+    public function unpinMessage(Request $request, $groupId)
+    {
+        $userId = auth('sanctum')->id() ?? Auth::id();
+        $group = Group::findOrFail($groupId);
+
+        $isCreator = ((int)$group->created_by_user_id === (int)$userId);
+        $isAdmin = GroupMember::where('group_id', $groupId)
+            ->where('user_id', $userId)
+            ->where('is_active', 1)
+            ->whereIn('role_id', [1, 2])
+            ->exists();
+
+        if (!$isCreator && !$isAdmin) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'عذراً، فقط منشئ المجموعة أو المسؤول يمكنه إلغاء التثبيت.'
+            ], 403);
+        }
+
+        $group->pinned_message_id = null;
+        $group->pinned_by_user_id = null;
+        $group->pinned_at = null;
+        $group->pinned_until = null;
+        $group->save();
+
+        $memberIds = GroupMember::where('group_id', $groupId)
+            ->where('is_active', 1)
+            ->pluck('user_id')
+            ->toArray();
+
+        try {
+            broadcast(new GroupMessageUnpinned(
+                groupId: $groupId,
+                memberIds: $memberIds
+            ));
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('Broadcast error in unpinMessage: ' . $e->getMessage());
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'تم إلغاء تثبيت الرسالة بنجاح',
         ]);
     }
 }
