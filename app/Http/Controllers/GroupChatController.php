@@ -560,11 +560,20 @@ class GroupChatController extends Controller
         $group->avatar_url = $group->image ? asset('new_wiselook/uploads/' . $group->image) : asset('upload/no_image.jpg');
         $isCreator = ((int)$group->created_by_user_id === (int)$userId);
 
+        if ($group->pinnedMessage) {
+            $pinned = $group->pinnedMessage;
+            $pinned->image_url = $pinned->image ? (str_starts_with($pinned->image, 'http') ? $pinned->image : asset('new_wiselook/uploads/' . basename($pinned->image))) : null;
+            $pinned->video_url = $pinned->video ? (str_starts_with($pinned->video, 'http') ? $pinned->video : asset('new_wiselook/uploads/' . basename($pinned->video))) : null;
+            $pinned->audio_url = $pinned->audio ? (str_starts_with($pinned->audio, 'http') ? $pinned->audio : asset('new_wiselook/uploads/' . basename($pinned->audio))) : null;
+        }
+
         return response()->json([
             'status' => 'success',
             'group' => $group,
             'is_creator' => $isCreator,
-            'auth_user_id' => $userId
+            'auth_user_id' => $userId,
+            'pinned_message_id' => $group->pinned_message_id,
+            'pinned_message' => $group->pinnedMessage,
         ]);
     }
 
