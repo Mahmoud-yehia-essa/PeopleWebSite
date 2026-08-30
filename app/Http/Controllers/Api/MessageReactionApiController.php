@@ -132,7 +132,9 @@ class MessageReactionApiController extends Controller
         $memberIds = [];
         if (!empty($message->group_id)) {
             $memberIds = GroupMember::where('group_id', $message->group_id)
-                ->where('is_active', 1)
+                ->where(function($q) {
+                    $q->whereNull('is_active')->orWhere('is_active', 1);
+                })
                 ->pluck('user_id')
                 ->map(fn($id) => (int)$id)
                 ->toArray();

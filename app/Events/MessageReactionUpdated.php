@@ -42,15 +42,23 @@ class MessageReactionUpdated implements ShouldBroadcastNow
         if (!empty($this->message->group_id)) {
             $channels[] = new PrivateChannel('chat.group.' . $this->message->group_id);
             $channels[] = new PrivateChannel('group.' . $this->message->group_id);
-            foreach ($this->memberIds as $mId) {
-                $channels[] = new PrivateChannel('chat.' . $mId);
-                $channels[] = new PrivateChannel('private-chat.' . $mId);
+            $channels[] = new Channel('group.' . $this->message->group_id);
+            $channels[] = new Channel('chat.group.' . $this->message->group_id);
+            if (!empty($this->memberIds)) {
+                foreach ($this->memberIds as $mId) {
+                    $channels[] = new PrivateChannel('chat.' . $mId);
+                    $channels[] = new PrivateChannel('private-chat.' . $mId);
+                }
             }
         } else {
-            $channels[] = new PrivateChannel('chat.' . $this->message->receiver_id);
-            $channels[] = new PrivateChannel('chat.' . $this->message->sender_id);
-            $channels[] = new PrivateChannel('private-chat.' . $this->message->receiver_id);
-            $channels[] = new PrivateChannel('private-chat.' . $this->message->sender_id);
+            if ($this->message->receiver_id) {
+                $channels[] = new PrivateChannel('chat.' . $this->message->receiver_id);
+                $channels[] = new PrivateChannel('private-chat.' . $this->message->receiver_id);
+            }
+            if ($this->message->sender_id) {
+                $channels[] = new PrivateChannel('chat.' . $this->message->sender_id);
+                $channels[] = new PrivateChannel('private-chat.' . $this->message->sender_id);
+            }
         }
 
         return array_values(array_unique($channels));
