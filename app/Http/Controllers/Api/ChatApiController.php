@@ -415,7 +415,7 @@ class ChatApiController extends Controller
                 $isDocument = false;
                 $docExtensions = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'zip', 'rar', 'csv', 'tar', 'gz'];
                 if ($msg->image) {
-                    if (str_contains($msg->image, 'Animated-Fluent-Emojis') || str_contains($msg->image, '_stk_') || str_contains($msg->image, 'stickers/') || str_contains($msg->image, 'githubusercontent.com')) {
+                    if (str_contains($msg->image, 'Animated-Fluent-Emojis') || str_contains($msg->image, '_stk_') || str_contains($msg->image, 'stickers/') || str_contains($msg->image, 'githubusercontent.com') || str_contains($msg->image, 'giphy.com') || str_contains($msg->image, 'tenor.com') || str_ends_with(strtolower($msg->image), '.gif')) {
                         $isSticker = true;
                     } else {
                         $ext = strtolower(pathinfo($msg->image, PATHINFO_EXTENSION));

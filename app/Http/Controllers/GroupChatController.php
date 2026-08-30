@@ -226,7 +226,7 @@ class GroupChatController extends Controller
                 $isDocument = false;
                 $docExtensions = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'zip', 'rar', 'csv', 'tar', 'gz'];
                 if ($msg->image) {
-                    if (str_contains($msg->image, 'Animated-Fluent-Emojis') || str_contains($msg->image, '_stk_') || str_contains($msg->image, 'stickers/') || str_contains($msg->image, 'githubusercontent.com')) {
+                    if (str_contains($msg->image, 'Animated-Fluent-Emojis') || str_contains($msg->image, '_stk_') || str_contains($msg->image, 'stickers/') || str_contains($msg->image, 'githubusercontent.com') || str_contains($msg->image, 'giphy.com') || str_contains($msg->image, 'tenor.com') || str_ends_with(strtolower($msg->image), '.gif')) {
                         $isSticker = true;
                     } else {
                         $ext = strtolower(pathinfo($msg->image, PATHINFO_EXTENSION));
@@ -480,7 +480,7 @@ class GroupChatController extends Controller
         if (empty($messageType)) {
             if ($isDocument) {
                 $messageType = 'document';
-            } elseif ($imagePath && (str_contains($imagePath, 'Animated-Fluent-Emojis') || str_contains($imagePath, '_stk_') || str_contains($imagePath, 'stickers/') || str_contains($imagePath, 'githubusercontent.com'))) {
+            } elseif ($imagePath && (str_contains($imagePath, 'Animated-Fluent-Emojis') || str_contains($imagePath, '_stk_') || str_contains($imagePath, 'stickers/') || str_contains($imagePath, 'githubusercontent.com') || str_contains($imagePath, 'giphy.com') || str_contains($imagePath, 'tenor.com') || str_ends_with(strtolower($imagePath), '.gif'))) {
                 $messageType = 'sticker';
             } else {
                 $messageType = $imagePath ? 'image' : ($videoPath ? 'video' : ($audioPath ? 'voice' : 'text'));
