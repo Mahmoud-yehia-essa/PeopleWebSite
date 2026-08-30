@@ -9,6 +9,7 @@ use App\Events\CallDeclined;
 use App\Events\CallEnded;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Peterujah\Agora\Agora;
 use Peterujah\Agora\User as AgoraUser;
 use Peterujah\Agora\Roles;
@@ -64,6 +65,26 @@ class CallController extends Controller
 
         if ($callerId === $receiverId) {
             return response()->json(['status' => 'error', 'message' => 'لا يمكنك الاتصال بنفسك.'], 400);
+        }
+
+        // 1. Check if Caller is currently in an active call
+        $callerActive = Cache::get("active_call_user_{$callerId}");
+        if ($callerActive && !empty($callerActive['channel_name'])) {
+            return response()->json([
+                'status' => 'busy',
+                'busy' => true,
+                'message' => 'أنت في مكالمة أخرى حالياً.'
+            ], 409);
+        }
+
+        // 2. Check if Receiver is currently in an active call
+        $receiverActive = Cache::get("active_call_user_{$receiverId}");
+        if ($receiverActive && !empty($receiverActive['channel_name'])) {
+            return response()->json([
+                'status' => 'busy',
+                'busy' => true,
+                'message' => 'المستخدم في مكالمة أخرى حالياً.'
+            ], 409);
         }
 
         $receiver = User::find($receiverId);
@@ -128,6 +149,18 @@ class CallController extends Controller
                 $receiverToken
             ));
 
+            // Record active call for both users
+            $callData = [
+                'channel_name' => $channelName,
+                'caller_id' => $callerId,
+                'receiver_id' => $receiverId,
+                'status' => 'ringing',
+                'timestamp' => time(),
+            ];
+            Cache::put("active_call_user_{$callerId}", $callData, now()->addMinutes(30));
+            Cache::put("active_call_user_{$receiverId}", $callData, now()->addMinutes(30));
+            Cache::put("active_call_channel_{$channelName}", $callData, now()->addMinutes(60));
+
             return response()->json([
                 'status' => 'success',
                 'channel_name' => $channelName,
@@ -154,6 +187,18 @@ class CallController extends Controller
         $receiverId = $caller ? (int)$caller->id : (auth('sanctum')->id() ?? Auth::id());
 
         if ($callerId && $channelName) {
+            $callData = Cache::get("active_call_channel_{$channelName}") ?? [
+                'channel_name' => $channelName,
+                'caller_id' => $callerId,
+                'receiver_id' => $receiverId,
+            ];
+            $callData['status'] = 'in_call';
+            $callData['accepted_at'] = time();
+
+            Cache::put("active_call_user_{$callerId}", $callData, now()->addHours(2));
+            Cache::put("active_call_user_{$receiverId}", $callData, now()->addHours(2));
+            Cache::put("active_call_channel_{$channelName}", $callData, now()->addHours(2));
+
             broadcast(new CallAccepted($callerId, $receiverId, $channelName));
         }
 
@@ -168,9 +213,17 @@ class CallController extends Controller
         $caller = $this->resolveCaller($request);
         $callerId = (int) ($request->caller_id ?? $request->callerId ?? $request->input('caller_id') ?? $request->input('callerId'));
         $receiverId = $caller ? (int)$caller->id : (auth('sanctum')->id() ?? Auth::id());
+        $channelName = $request->channel_name ?? $request->channelName ?? $request->input('channel_name');
 
         if ($callerId) {
+            Cache::forget("active_call_user_{$callerId}");
             broadcast(new CallDeclined($callerId, $receiverId));
+        }
+        if ($receiverId) {
+            Cache::forget("active_call_user_{$receiverId}");
+        }
+        if ($channelName) {
+            Cache::forget("active_call_channel_{$channelName}");
         }
 
         return response()->json(['status' => 'success']);
@@ -197,6 +250,22 @@ class CallController extends Controller
                     $targetUserId = $id1 ?: $id2;
                 }
             }
+        }
+
+        if ($channelName) {
+            $callData = Cache::get("active_call_channel_{$channelName}");
+            if ($callData) {
+                if (!empty($callData['caller_id'])) Cache::forget("active_call_user_{$callData['caller_id']}");
+                if (!empty($callData['receiver_id'])) Cache::forget("active_call_user_{$callData['receiver_id']}");
+            }
+            Cache::forget("active_call_channel_{$channelName}");
+        }
+
+        if ($targetUserId) {
+            Cache::forget("active_call_user_{$targetUserId}");
+        }
+        if ($currentUserId) {
+            Cache::forget("active_call_user_{$currentUserId}");
         }
 
         if ($targetUserId && $channelName) {
@@ -284,6 +353,18 @@ class CallController extends Controller
                 }
             }
 
+            // Record active call for both users
+            $callData = [
+                'channel_name' => $channelName,
+                'caller_id' => $callerId,
+                'receiver_id' => $receiverId,
+                'status' => 'ringing',
+                'timestamp' => time(),
+            ];
+            Cache::put("active_call_user_{$callerId}", $callData, now()->addMinutes(30));
+            Cache::put("active_call_user_{$receiverId}", $callData, now()->addMinutes(30));
+            Cache::put("active_call_channel_{$channelName}", $callData, now()->addMinutes(60));
+
             return response()->json([
                 'status' => 'success',
                 'channel_name' => $channelName,
@@ -338,6 +419,18 @@ class CallController extends Controller
                 ->setPrivilegeExpire($expireTime);
             $token = RtcToken::buildTokenWithUid($client, $agoraUser);
 
+            // Record active call for both users
+            $callData = [
+                'channel_name' => $channelName,
+                'caller_id' => $callerId,
+                'receiver_id' => $receiverId,
+                'status' => 'ringing',
+                'timestamp' => time(),
+            ];
+            Cache::put("active_call_user_{$callerId}", $callData, now()->addMinutes(30));
+            Cache::put("active_call_user_{$receiverId}", $callData, now()->addMinutes(30));
+            Cache::put("active_call_channel_{$channelName}", $callData, now()->addMinutes(60));
+
             return response()->json([
                 'status' => 'success',
                 'channel_name' => $channelName,
@@ -378,6 +471,18 @@ class CallController extends Controller
                 ->setRole(Roles::RTC_PUBLISHER)
                 ->setPrivilegeExpire($expireTime);
             $token = RtcToken::buildTokenWithUid($client, $agoraUser);
+
+            // Record active call for both users
+            $callData = [
+                'channel_name' => $channelName,
+                'caller_id' => $callerId,
+                'receiver_id' => $receiverId,
+                'status' => 'ringing',
+                'timestamp' => time(),
+            ];
+            Cache::put("active_call_user_{$callerId}", $callData, now()->addMinutes(30));
+            Cache::put("active_call_user_{$receiverId}", $callData, now()->addMinutes(30));
+            Cache::put("active_call_channel_{$channelName}", $callData, now()->addMinutes(60));
 
             return response()->json([
                 'status' => 'success',

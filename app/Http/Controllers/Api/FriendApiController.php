@@ -34,6 +34,10 @@ class FriendApiController extends Controller
 
         $userIds = [];
 
+        $search = trim($request->input('search', $request->input('q', $request->input('query', ''))));
+        $hasMore = false;
+        $total = 0;
+
         if ($isActive == 1) {
             // أصدقاء حقيقيين ونشطين (تجميع الطرف الآخر في العلاقة)
             $friendships = Friendship::where('is_active', 1)
@@ -41,13 +45,28 @@ class FriendApiController extends Controller
                     $q->where('sender_id', $targetUserId)
                       ->orWhere('receiver_id', $targetUserId);
                 })
-                ->skip($offset)
-                ->take($limit)
                 ->get();
 
             foreach ($friendships as $f) {
-                $userIds[] = ($f->sender_id == $targetUserId) ? $f->receiver_id : $f->sender_id;
+                $userIds[] = ($f->sender_id == $targetUserId) ? (int)$f->receiver_id : (int)$f->sender_id;
             }
+            $userIds = array_values(array_unique(array_filter($userIds)));
+
+            $query = User::whereIn('id', $userIds);
+
+            if (!empty($search)) {
+                $query->where(function($q) use ($search) {
+                    $q->where('first_name', 'LIKE', "%{$search}%")
+                      ->orWhere('last_name', 'LIKE', "%{$search}%")
+                      ->orWhere('username', 'LIKE', "%{$search}%")
+                      ->orWhereRaw("CONCAT(COALESCE(first_name, ''), ' ', COALESCE(last_name, '')) LIKE ?", ["%{$search}%"])
+                      ->orWhereRaw("CONCAT(COALESCE(first_name, ''), COALESCE(last_name, '')) LIKE ?", ["%{$search}%"]);
+                });
+            }
+
+            $total = $query->count();
+            $users = $query->skip($offset)->take($limit)->get();
+            $hasMore = ($offset + $limit) < $total;
         } else {
             // طلبات الصداقة المعلقة والمرفوضة قبل القبول
             if ($filterType === 'sent') {
@@ -70,7 +89,9 @@ class FriendApiController extends Controller
         }
 
         // جلب بيانات الحسابات المستهدفة بالـ IDs المستخرجة
-        $users = User::whereIn('id', $userIds)->get();
+        if ($isActive != 1) {
+            $users = User::whereIn('id', $userIds)->get();
+        }
 
         $formatAvatar = function ($raw) {
             if (empty($raw) || $raw === 'non' || $raw === 'null' || $raw === 'undefined') {
@@ -109,8 +130,12 @@ class FriendApiController extends Controller
         });
 
         return response()->json([
-            'success' => true,
-            'data'    => $formattedData
+            'success'  => true,
+            'data'     => $formattedData,
+            'users'    => $formattedData,
+            'friends'  => $formattedData,
+            'has_more' => $hasMore,
+            'total'    => $total ?: count($formattedData),
         ]);
     }
 
