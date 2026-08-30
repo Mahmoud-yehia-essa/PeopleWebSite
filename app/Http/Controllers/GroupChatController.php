@@ -353,10 +353,10 @@ class GroupChatController extends Controller
             }
         } elseif ($request->filled('image') && is_string($request->input('image'))) {
             $rawImg = $request->input('image');
-            $imagePath = (str_starts_with($rawImg, 'http://') || str_starts_with($rawImg, 'https://')) ? $rawImg : basename($rawImg);
+            $imagePath = $rawImg;
         } elseif ($request->filled('image_url') && is_string($request->input('image_url'))) {
             $rawImg = $request->input('image_url');
-            $imagePath = (str_starts_with($rawImg, 'http://') || str_starts_with($rawImg, 'https://')) ? $rawImg : basename($rawImg);
+            $imagePath = $rawImg;
         }
 
         $videoPath = null;
@@ -480,6 +480,8 @@ class GroupChatController extends Controller
         if (empty($messageType)) {
             if ($isDocument) {
                 $messageType = 'document';
+            } elseif ($imagePath && (str_contains($imagePath, 'Animated-Fluent-Emojis') || str_contains($imagePath, '_stk_') || str_contains($imagePath, 'stickers/') || str_contains($imagePath, 'githubusercontent.com'))) {
+                $messageType = 'sticker';
             } else {
                 $messageType = $imagePath ? 'image' : ($videoPath ? 'video' : ($audioPath ? 'voice' : 'text'));
             }
