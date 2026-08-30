@@ -292,8 +292,7 @@ class GroupChatController extends Controller
         @ini_set('max_input_time', '600');
 
         $request->validate([
-            'message' => 'required_without_all:image,video,audio|nullable|string',
-            'image' => 'nullable|file|max:51200',
+            'message' => 'required_without_all:image,image_url,video,audio,document,file|nullable|string',
             'video' => 'nullable|file|max:1048576',
             'audio' => 'nullable|file|max:51200',
             'parent_id' => 'nullable',
@@ -352,8 +351,11 @@ class GroupChatController extends Controller
                 $imagePath = $docName;
                 $isDocument = true;
             }
-        } elseif ($request->filled('image')) {
+        } elseif ($request->filled('image') && is_string($request->input('image'))) {
             $rawImg = $request->input('image');
+            $imagePath = (str_starts_with($rawImg, 'http://') || str_starts_with($rawImg, 'https://')) ? $rawImg : basename($rawImg);
+        } elseif ($request->filled('image_url') && is_string($request->input('image_url'))) {
+            $rawImg = $request->input('image_url');
             $imagePath = (str_starts_with($rawImg, 'http://') || str_starts_with($rawImg, 'https://')) ? $rawImg : basename($rawImg);
         }
 
