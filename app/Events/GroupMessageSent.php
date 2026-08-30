@@ -69,15 +69,39 @@ class GroupMessageSent implements ShouldBroadcastNow
             ];
         }
 
+        $imageUrl = $this->message->image ? (str_starts_with($this->message->image, 'http') ? $this->message->image : asset('new_wiselook/uploads/' . basename($this->message->image))) : null;
+        $videoUrl = $this->message->video ? (str_starts_with($this->message->video, 'http') ? $this->message->video : asset('new_wiselook/uploads/' . basename($this->message->video))) : null;
+        $audioUrl = $this->message->audio ? (str_starts_with($this->message->audio, 'http') ? $this->message->audio : asset('new_wiselook/uploads/' . basename($this->message->audio))) : null;
+
+        $msgType = $this->message->type;
+        if (empty($msgType)) {
+            if ($this->message->image) {
+                if (str_contains($this->message->image, 'Animated-Fluent-Emojis') || str_contains($this->message->image, '_stk_') || str_contains($this->message->image, 'stickers/') || str_contains($this->message->image, 'githubusercontent.com') || str_contains($this->message->image, 'giphy.com') || str_contains($this->message->image, 'tenor.com') || str_ends_with(strtolower($this->message->image), '.gif')) {
+                    $msgType = 'sticker';
+                } else {
+                    $msgType = 'image';
+                }
+            } elseif ($this->message->video) {
+                $msgType = 'video';
+            } elseif ($this->message->audio) {
+                $msgType = 'voice';
+            } else {
+                $msgType = 'text';
+            }
+        }
+
         return [
             'id' => $this->message->id,
+            '_id' => (string)$this->message->id,
             'message' => $this->message->message,
-            'image' => $this->message->image,
-            'video' => $this->message->video,
-            'audio' => $this->message->audio,
-            'image_url' => $this->message->image ? asset('new_wiselook/uploads/' . basename($this->message->image)) : null,
-            'video_url' => $this->message->video ? asset('new_wiselook/uploads/' . basename($this->message->video)) : null,
-            'audio_url' => $this->message->audio ? asset('new_wiselook/uploads/' . basename($this->message->audio)) : null,
+            'image' => $imageUrl ?? $this->message->image,
+            'video' => $videoUrl ?? $this->message->video,
+            'audio' => $audioUrl ?? $this->message->audio,
+            'image_url' => $imageUrl,
+            'file_url' => $imageUrl,
+            'video_url' => $videoUrl,
+            'audio_url' => $audioUrl,
+            'type' => $msgType,
             'sender_id' => (int)$this->message->sender_id,
             'user_id' => (int)$this->message->sender_id,
             'from_id' => (int)$this->message->sender_id,

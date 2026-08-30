@@ -85,6 +85,23 @@ class MessageSent implements ShouldBroadcastNow
         $audioUrl = $this->message->audio ? (str_starts_with($this->message->audio, 'http') ? $this->message->audio : asset('new_wiselook/uploads/' . basename($this->message->audio))) : null;
         $primaryUrl = $imageUrl ?? $videoUrl ?? $audioUrl;
 
+        $msgType = $this->message->type;
+        if (empty($msgType)) {
+            if ($this->message->image) {
+                if (str_contains($this->message->image, 'Animated-Fluent-Emojis') || str_contains($this->message->image, '_stk_') || str_contains($this->message->image, 'stickers/') || str_contains($this->message->image, 'githubusercontent.com') || str_contains($this->message->image, 'giphy.com') || str_contains($this->message->image, 'tenor.com') || str_ends_with(strtolower($this->message->image), '.gif')) {
+                    $msgType = 'sticker';
+                } else {
+                    $msgType = 'image';
+                }
+            } elseif ($this->message->video) {
+                $msgType = 'video';
+            } elseif ($this->message->audio) {
+                $msgType = 'voice';
+            } else {
+                $msgType = 'text';
+            }
+        }
+
         return [
             'id' => $this->message->id,
             '_id' => (string)$this->message->id,
@@ -94,11 +111,13 @@ class MessageSent implements ShouldBroadcastNow
             'local_id' => $tempId,
             'temporary_id' => $tempId,
             'request_id' => $tempId,
+            'type' => $msgType,
             'message' => $this->message->message,
             'image' => $imageUrl ?? $this->message->image,
             'video' => $videoUrl ?? $this->message->video,
             'audio' => $audioUrl ?? $this->message->audio,
             'image_url' => $imageUrl,
+            'file_url' => $imageUrl,
             'video_url' => $videoUrl,
             'audio_url' => $audioUrl,
             'uri' => $primaryUrl,
