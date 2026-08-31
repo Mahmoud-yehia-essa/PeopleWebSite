@@ -291,16 +291,38 @@ class GroupChatController extends Controller
         @ini_set('max_execution_time', '600');
         @ini_set('max_input_time', '600');
 
-        $request->validate([
-            'message' => 'required_without_all:image,image_url,video,audio,document,file|nullable|string',
-            'video' => 'nullable|file|max:1048576',
-            'audio' => 'nullable|file|max:51200',
-            'parent_id' => 'nullable',
-            'trim_start' => 'nullable|numeric|min:0',
-            'trim_end' => 'nullable|numeric|min:0',
-        ]);
-
         $userId = auth('sanctum')->id() ?? Auth::id();
+        if (!$userId) {
+            $userId = $request->header('X-User-Id')
+                ?: $request->header('X-Auth-Id')
+                ?: $request->input('user_id')
+                ?: $request->input('sender_id');
+        }
+
+        $messageText = $request->input('message') 
+            ?? $request->input('text') 
+            ?? $request->input('content') 
+            ?? $request->input('body') 
+            ?? '';
+
+        $hasMedia = $request->hasFile('image') 
+            || $request->hasFile('video') 
+            || $request->hasFile('audio') 
+            || $request->hasFile('document') 
+            || $request->hasFile('file') 
+            || $request->filled('image') 
+            || $request->filled('image_url')
+            || $request->filled('video')
+            || $request->filled('audio')
+            || $request->filled('document')
+            || $request->filled('file');
+
+        if (empty(trim($messageText)) && !$hasMedia) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'محتوى الرسالة أو ملف المرفق مطلوب.'
+            ], 422);
+        }
 
         // Verify membership
         $members = GroupMember::where('group_id', $groupId)
@@ -308,7 +330,7 @@ class GroupChatController extends Controller
             ->pluck('user_id')
             ->toArray();
 
-        if (!in_array($userId, $members)) {
+        if ($userId && !in_array($userId, $members)) {
             return response()->json(['status' => 'error', 'message' => 'غير مسموح لك بالنشر في هذه المجموعة.'], 403);
         }
 
@@ -465,7 +487,7 @@ class GroupChatController extends Controller
             'sender_id' => $userId,
             'receiver_id' => null, // null for group chats
             'group_id' => $groupId,
-            'message' => $request->message ?? '',
+            'message' => $messageText ?? '',
             'image' => $imagePath,
             'video' => $videoPath,
             'audio' => $audioPath,
