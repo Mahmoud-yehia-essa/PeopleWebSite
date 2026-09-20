@@ -440,7 +440,7 @@ class PostApiController extends Controller
             'options'           => 'nullable',
             'expires_at'        => 'nullable|date',
             'media'             => 'nullable|array',
-            'media.*'           => 'file|mimes:jpg,jpeg,png,gif,mp4,mov,avi|max:20480'
+            'media.*'           => 'file|mimes:jpg,jpeg,png,gif,webp,mp4,mov,avi,webm,mkv,quicktime,3gp|max:204800'
         ]);
 
         if ($validator->fails()) {

@@ -200,9 +200,9 @@ class StoryApiController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'content' => 'nullable|string|max:500',
-            'media'   => 'nullable|file|max:51200',
-            'image'   => 'nullable|file|max:51200',
-            'video'   => 'nullable|file|max:51200',
+            'media'   => 'nullable|file|max:153600',
+            'image'   => 'nullable|file|max:153600',
+            'video'   => 'nullable|file|max:153600',
         ]);
 
         if ($validator->fails()) {
@@ -247,10 +247,33 @@ class StoryApiController extends Controller
 
                 if ($isVideo) {
                     $story->video = $filename;
+                    $videoPath = $destinationPath . '/' . $filename;
+
+                    // Server-side safety duration check (5 minutes = 300s + 5s tolerance)
+                    if (function_exists('shell_exec')) {
+                        $ffprobePaths = ['/opt/homebrew/bin/ffprobe', '/usr/local/bin/ffprobe', '/usr/bin/ffprobe', 'ffprobe'];
+                        foreach ($ffprobePaths as $ffprobe) {
+                            try {
+                                if ($ffprobe === 'ffprobe' || (file_exists($ffprobe) && is_executable($ffprobe))) {
+                                    $cmd = "{$ffprobe} -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 " . escapeshellarg($videoPath) . " 2>&1";
+                                    $output = @\shell_exec($cmd);
+                                    if ($output && is_numeric(trim($output))) {
+                                        $durationSec = floatval(trim($output));
+                                        if ($durationSec > 305) {
+                                            @unlink($videoPath);
+                                            return response()->json(['success' => false, 'message' => 'مدة الفيديو تتجاوز الحد الأقصى المسموح به (5 دقائق).'], 422);
+                                        }
+                                        break;
+                                    }
+                                }
+                            } catch (\Throwable $t) {
+                                // proceed safely
+                            }
+                        }
+                    }
 
                     // Generate thumbnail from first part of video (fail-safe)
                     $thumbFilename = pathinfo($filename, PATHINFO_FILENAME) . '_thumb.jpg';
-                    $videoPath = $destinationPath . '/' . $filename;
                     $thumbPath = $destinationPath . '/' . $thumbFilename;
                     
                     if (function_exists('exec')) {
@@ -281,12 +304,12 @@ class StoryApiController extends Controller
 
             $mediaUrl = '';
             $mediaType = 'text';
-            if ($story->image) {
-                $mediaUrl = asset('upload/stories/' . $story->image);
-                $mediaType = 'image';
-            } elseif ($story->video) {
+            if ($story->video) {
                 $mediaUrl = asset('upload/stories/' . $story->video);
                 $mediaType = 'video';
+            } elseif ($story->image) {
+                $mediaUrl = asset('upload/stories/' . $story->image);
+                $mediaType = 'image';
             }
 
             return response()->json([
