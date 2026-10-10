@@ -304,17 +304,7 @@
             {{ $maintenanceMessage ?? 'نقوم حالياً بإجراء بعض التحسينات والصيانة الدورية لتوفير تجربة أفضل وأكثر أماناً. سنعود للعمل بكامل طاقتنا في أقرب وقت ممكن.' }}
         </p>
 
-        <!-- Actions -->
-        <div class="action-btns">
-            <button onclick="window.location.reload();" class="btn-refresh">
-                <i class='bx bx-refresh fs-5'></i>
-                إعادة المحاولة
-            </button>
-            <a href="{{ url('/login') }}" class="btn-login" title="دخول الإدارة">
-                <i class='bx bx-shield-quarter fs-5'></i>
-                دخول الإدارة
-            </a>
-        </div>
+
 
         <!-- Footer -->
         <div class="footer-note">
