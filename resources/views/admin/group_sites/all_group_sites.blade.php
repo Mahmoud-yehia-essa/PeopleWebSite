@@ -225,6 +225,19 @@
 <!-- JAVASCRIPT & AJAX CONTROL -->
 <!-- ============================================== -->
 <script type="text/javascript">
+    // دالة مساعدة لتأمين وتطهير النصوص من أي رموز أو وسوم
+    function escapeHtml(text) {
+        if (text === null || text === undefined) return '';
+        const map = {
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#039;'
+        };
+        return text.toString().replace(/[&<>"']/g, function(m) { return map[m]; });
+    }
+
     // فتح شاشة عرض الصورة المكبرة
     function showImageModal(src) {
         document.getElementById('modalImage').src = src;
@@ -254,15 +267,12 @@
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    membersList.innerHTML = '';
-                    if (data.members.length === 0) {
+                    if (!data.members || data.members.length === 0) {
                         membersList.innerHTML = '<li class="list-group-item text-center text-muted p-4">لا يوجد أي مشارك في هذه المجموعة بعد.</li>';
                     } else {
+                        let htmlArray = [];
                         data.members.forEach(member => {
-                            let roleBadge = 'bg-secondary';
-                            if (member.role === 'مشرف المجموعة') {
-                                roleBadge = 'bg-danger';
-                            }
+                            let roleBadge = member.role === 'مشرف المجموعة' ? 'bg-danger' : 'bg-secondary';
                             
                             let activeBadge = member.is_active == 1 
                                 ? '<span class="badge bg-success-subtle text-success border border-success ms-2" style="font-size: 11px;">نشط</span>' 
@@ -271,28 +281,29 @@
                             let kickButton = '';
                             if (member.role !== 'مشرف المجموعة') {
                                 kickButton = `
-                                    <button class="btn btn-sm btn-outline-danger" onclick="kickMember(${member.member_id}, '${member.user_name}')">
+                                    <button class="btn btn-sm btn-outline-danger" onclick="kickMember(${member.member_id}, '${escapeHtml(member.user_name)}')">
                                         <i class="bx bx-user-minus"></i> طرد
                                     </button>
                                 `;
                             }
 
-                            membersList.innerHTML += `
+                            htmlArray.push(`
                                 <li class="list-group-item d-flex align-items-center justify-content-between py-3">
                                     <div class="d-flex align-items-center">
-                                        <img src="${member.profile_picture}" class="rounded-circle me-3" style="width: 42px; height: 42px; object-fit: cover; border: 1px solid #ddd;">
+                                        <img src="${escapeHtml(member.profile_picture)}" class="rounded-circle me-3" style="width: 42px; height: 42px; object-fit: cover; border: 1px solid #ddd;">
                                         <div>
-                                            <h6 class="mb-0 fw-bold">${member.user_name} ${activeBadge}</h6>
-                                            <small class="text-muted" style="font-size: 11px;">${member.email} | انضم: ${member.joined_at}</small>
+                                            <h6 class="mb-0 fw-bold">${escapeHtml(member.user_name)} ${activeBadge}</h6>
+                                            <small class="text-muted" style="font-size: 11px;">${escapeHtml(member.email)} | انضم: ${escapeHtml(member.joined_at)}</small>
                                         </div>
                                     </div>
                                     <div class="d-flex align-items-center gap-2">
-                                        <span class="badge ${roleBadge}" style="font-size: 12px;">${member.role}</span>
+                                        <span class="badge ${roleBadge}" style="font-size: 12px;">${escapeHtml(member.role)}</span>
                                         ${kickButton}
                                     </div>
                                 </li>
-                            `;
+                            `);
                         });
+                        membersList.innerHTML = htmlArray.join('');
                     }
                 } else {
                     membersList.innerHTML = '<li class="list-group-item text-center text-danger p-4">حدث خطأ أثناء تحميل الأعضاء</li>';
@@ -347,6 +358,8 @@
     // إدارة المواضيع (View and Delete)
     // ==============================================
     var currentActiveGroupForSubjects = null;
+    var cachedSubjects = {}; // حفظ المواضيع بالذاكرة لتفادي تمرير نصوص طويلة بداخل onclick
+
     function showGroupSubjects(groupId, groupTitle) {
         currentActiveGroupForSubjects = groupId;
         document.getElementById('groupSubjectModalTitle').innerText = groupTitle;
@@ -365,47 +378,57 @@
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    tbody.innerHTML = '';
-                    if (data.subjects.length === 0) {
+                    if (!data.subjects || data.subjects.length === 0) {
                         tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted p-4">لا توجد أي مواضيع منشورة في هذه المجموعة بعد.</td></tr>';
                     } else {
+                        let htmlArray = [];
+                        cachedSubjects = {};
+
                         data.subjects.forEach(subject => {
+                            cachedSubjects[subject.id] = subject;
+
                             let attachmentHtml = '<span class="text-muted small">لا يوجد</span>';
                             if (subject.attachment_path) {
+                                let safePath = escapeHtml(subject.attachment_path);
                                 if (subject.attachment_type === 'image') {
-                                    attachmentHtml = `<img src="${subject.attachment_path}" class="rounded border" style="width: 80px; height: 60px; object-fit: cover; cursor: pointer;" onclick="showImageModal('${subject.attachment_path}')">`;
+                                    attachmentHtml = `<img src="${safePath}" class="rounded border" style="width: 80px; height: 60px; object-fit: cover; cursor: pointer;" onclick="showImageModal('${safePath}')">`;
                                 } else if (subject.attachment_type === 'video') {
                                     attachmentHtml = `
                                         <video width="120" height="70" controls class="rounded border bg-black">
-                                            <source src="${subject.attachment_path}">
+                                            <source src="${safePath}">
                                             الفيديو غير مدعوم
                                         </video>
                                     `;
                                 } else if (subject.attachment_type === 'audio') {
                                     attachmentHtml = `
                                         <audio style="max-width: 140px;" controls>
-                                            <source src="${subject.attachment_path}">
+                                            <source src="${safePath}">
                                             صوت غير مدعوم
                                         </audio>
                                     `;
                                 }
                             }
 
-                            tbody.innerHTML += `
+                            let safeTitle = escapeHtml(subject.title);
+                            let safeDesc = subject.description ? escapeHtml(subject.description).replace(/\n/g, '<br>') : '<span class="text-muted italic">لا يوجد محتوى</span>';
+                            let safeAuthorName = escapeHtml(subject.author_name);
+                            let safeAuthorPic = escapeHtml(subject.author_picture);
+
+                            htmlArray.push(`
                                 <tr>
                                     <td>
                                         <div class="d-flex align-items-center">
-                                            <img src="${subject.author_picture}" class="rounded-circle me-2" style="width: 32px; height: 32px; object-fit: cover; border: 1px solid #eee;">
+                                            <img src="${safeAuthorPic}" class="rounded-circle me-2" style="width: 32px; height: 32px; object-fit: cover; border: 1px solid #eee;">
                                             <div>
-                                                <span class="fw-bold d-block text-nowrap">${subject.author_name}</span>
-                                                <small class="text-muted" style="font-size: 10px;">${subject.created_at}</small>
+                                                <span class="fw-bold d-block text-nowrap">${safeAuthorName}</span>
+                                                <small class="text-muted" style="font-size: 10px;">${escapeHtml(subject.created_at)}</small>
                                             </div>
                                         </div>
                                     </td>
-                                    <td><strong class="text-dark">${subject.title}</strong></td>
+                                    <td><strong class="text-dark">${safeTitle}</strong></td>
                                     <td>
                                         <div class="text-wrap text-muted small" style="max-width: 250px; max-height: 70px; overflow-y: auto;">
-                                            ${subject.description || '<span class="text-muted italic">لا يوجد محتوى</span>'}
+                                            ${safeDesc}
                                         </div>
                                     </td>
                                     <td>${attachmentHtml}</td>
@@ -419,20 +442,21 @@
                                     </td>
                                     <td class="text-center">
                                         <div class="d-flex justify-content-center gap-1">
-                                            <button class="btn btn-sm btn-outline-success py-1 px-2" onclick="showComments(${subject.id}, '${subject.title.replace(/'/g, "\\'")}')" title="عرض تعليقات الموضوع">
+                                            <button class="btn btn-sm btn-outline-success py-1 px-2" onclick="openSubjectComments(${subject.id})" title="عرض تعليقات الموضوع">
                                                 <i class="bx bx-message-rounded-dots"></i> التعليقات
                                             </button>
-                                            <button class="btn btn-sm btn-outline-primary py-1 px-2" onclick="showReactions(${subject.id}, '${subject.title.replace(/'/g, "\\'")}')" title="عرض تفاعلات الإعجاب">
+                                            <button class="btn btn-sm btn-outline-primary py-1 px-2" onclick="openSubjectReactions(${subject.id})" title="عرض تفاعلات الإعجاب">
                                                 <i class="bx bx-smile"></i> التفاعلات
                                             </button>
-                                            <button class="btn btn-sm btn-outline-danger py-1" onclick="deleteSubject(${subject.id}, '${subject.title.replace(/'/g, "\\'")}')" title="حذف الموضوع نهائياً">
+                                            <button class="btn btn-sm btn-outline-danger py-1" onclick="openDeleteSubject(${subject.id})" title="حذف الموضوع نهائياً">
                                                 <i class="bx bx-trash"></i>
                                             </button>
                                         </div>
                                     </td>
                                 </tr>
-                            `;
+                            `);
                         });
+                        tbody.innerHTML = htmlArray.join('');
                     }
                 } else {
                     tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger p-4">حدث خطأ أثناء تحميل المواضيع</td></tr>';
@@ -442,6 +466,24 @@
                 console.error(error);
                 tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger p-4">حدث خطأ بالاتصال بالخادم</td></tr>';
             });
+    }
+
+    function openSubjectComments(subjectId) {
+        const subject = cachedSubjects[subjectId];
+        const title = subject ? subject.title : 'الموضوع';
+        showComments(subjectId, title);
+    }
+
+    function openSubjectReactions(subjectId) {
+        const subject = cachedSubjects[subjectId];
+        const title = subject ? subject.title : 'الموضوع';
+        showReactions(subjectId, title);
+    }
+
+    function openDeleteSubject(subjectId) {
+        const subject = cachedSubjects[subjectId];
+        const title = subject ? subject.title : '';
+        deleteSubject(subjectId, title);
     }
 
     function deleteSubject(subjectId, subjectTitle) {
@@ -498,20 +540,21 @@
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    list.innerHTML = '';
-                    if (data.comments.length === 0) {
+                    if (!data.comments || data.comments.length === 0) {
                         list.innerHTML = '<li class="list-group-item text-center text-muted p-4">لا توجد أي تعليقات على هذا الموضوع بعد.</li>';
                     } else {
+                        let htmlArray = [];
                         data.comments.forEach(comment => {
                             let attachmentHtml = '';
                             if (comment.attachment_path) {
+                                let safeAtt = escapeHtml(comment.attachment_path);
                                 if (comment.attachment_type === 'image') {
-                                    attachmentHtml = `<div class="mt-2"><img src="${comment.attachment_path}" class="rounded border shadow-sm" style="max-height: 80px; max-width: 150px; object-fit: cover; cursor: pointer;" onclick="showImageModal('${comment.attachment_path}')"></div>`;
+                                    attachmentHtml = `<div class="mt-2"><img src="${safeAtt}" class="rounded border shadow-sm" style="max-height: 80px; max-width: 150px; object-fit: cover; cursor: pointer;" onclick="showImageModal('${safeAtt}')"></div>`;
                                 } else if (comment.attachment_type === 'video') {
                                     attachmentHtml = `
                                         <div class="mt-2">
                                             <video width="150" height="90" controls class="rounded border bg-black">
-                                                <source src="${comment.attachment_path}">
+                                                <source src="${safeAtt}">
                                             </video>
                                         </div>
                                     `;
@@ -519,23 +562,25 @@
                                     attachmentHtml = `
                                         <div class="mt-2">
                                             <audio style="max-width: 160px;" controls>
-                                                <source src="${comment.attachment_path}">
+                                                <source src="${safeAtt}">
                                             </audio>
                                         </div>
                                     `;
                                 }
                             }
 
-                            list.innerHTML += `
+                            let safeContent = comment.content ? escapeHtml(comment.content).replace(/\n/g, '<br>') : '<span class="text-muted italic">لا يوجد نص</span>';
+
+                            htmlArray.push(`
                                 <li class="list-group-item d-flex justify-content-between align-items-start py-3">
                                     <div class="d-flex align-items-start gap-3">
-                                        <img src="${comment.author_picture}" class="rounded-circle" style="width: 38px; height: 38px; object-fit: cover; border: 1px solid #ddd;">
+                                        <img src="${escapeHtml(comment.author_picture)}" class="rounded-circle" style="width: 38px; height: 38px; object-fit: cover; border: 1px solid #ddd;">
                                         <div>
                                             <div class="d-flex align-items-center">
-                                                <h6 class="mb-0 fw-bold me-2">${comment.author_name}</h6>
-                                                <small class="text-muted" style="font-size: 10px;">${comment.created_at}</small>
+                                                <h6 class="mb-0 fw-bold me-2">${escapeHtml(comment.author_name)}</h6>
+                                                <small class="text-muted" style="font-size: 10px;">${escapeHtml(comment.created_at)}</small>
                                             </div>
-                                            <p class="mb-0 mt-1 text-dark text-break small" style="white-space: pre-wrap;">${comment.content || '<span class="text-muted italic">لا يوجد نص</span>'}</p>
+                                            <p class="mb-0 mt-1 text-dark text-break small" style="white-space: pre-wrap;">${safeContent}</p>
                                             ${attachmentHtml}
                                         </div>
                                     </div>
@@ -543,8 +588,9 @@
                                         <i class="bx bx-trash"></i>
                                     </button>
                                 </li>
-                            `;
+                            `);
                         });
+                        list.innerHTML = htmlArray.join('');
                     }
                 } else {
                     list.innerHTML = '<li class="list-group-item text-center text-danger p-4">حدث خطأ أثناء تحميل التعليقات</li>';
@@ -610,30 +656,31 @@
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    list.innerHTML = '';
-                    if (data.reactions.length === 0) {
+                    if (!data.reactions || data.reactions.length === 0) {
                         list.innerHTML = '<li class="list-group-item text-center text-muted p-4">لا توجد تفاعلات على هذا الموضوع بعد.</li>';
                     } else {
+                        let htmlArray = [];
                         data.reactions.forEach(reaction => {
                             let typeBadge = reaction.type === 'like' 
                                 ? '<span class="badge bg-success-subtle text-success border border-success"><i class="bx bx-like"></i> إعجاب</span>' 
                                 : '<span class="badge bg-danger-subtle text-danger border border-danger"><i class="bx bx-dislike"></i> عدم إعجاب</span>';
 
-                            list.innerHTML += `
+                            htmlArray.push(`
                                 <li class="list-group-item d-flex align-items-center justify-content-between py-3">
                                     <div class="d-flex align-items-center">
-                                        <img src="${reaction.author_picture}" class="rounded-circle me-3" style="width: 38px; height: 38px; object-fit: cover; border: 1px solid #ddd;">
+                                        <img src="${escapeHtml(reaction.author_picture)}" class="rounded-circle me-3" style="width: 38px; height: 38px; object-fit: cover; border: 1px solid #ddd;">
                                         <div>
-                                            <h6 class="mb-0 fw-bold">${reaction.author_name} ${typeBadge}</h6>
-                                            <small class="text-muted" style="font-size: 10px;">التفاعل: ${reaction.created_at}</small>
+                                            <h6 class="mb-0 fw-bold">${escapeHtml(reaction.author_name)} ${typeBadge}</h6>
+                                            <small class="text-muted" style="font-size: 10px;">التفاعل: ${escapeHtml(reaction.created_at)}</small>
                                         </div>
                                     </div>
                                     <button class="btn btn-sm btn-outline-danger" onclick="deleteReaction(${reaction.id})" title="حذف هذا التفاعل وتحديث العداد">
                                         <i class="bx bx-trash"></i> إلغاء
                                     </button>
                                 </li>
-                            `;
+                            `);
                         });
+                        list.innerHTML = htmlArray.join('');
                     }
                 } else {
                     list.innerHTML = '<li class="list-group-item text-center text-danger p-4">حدث خطأ أثناء تحميل التفاعلات</li>';
@@ -662,7 +709,6 @@
                 .then(data => {
                     if (data.success) {
                         Swal.fire("تمت العملية!", data.message, "success");
-                        // إعادة جلب التفاعلات والمواضيع بالخلفية لتحديث عداد الـ Like/Dislike
                         if (currentActiveSubjectForReactions) {
                             loadReactions(currentActiveSubjectForReactions);
                         }

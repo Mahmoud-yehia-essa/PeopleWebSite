@@ -206,6 +206,11 @@ Route::post('misc/dictionary.php', [MiscApiController::class, 'dictionary']);
     Route::get('misc/languages.php', [MiscApiController::class, 'languages']);
     Route::get('languages', [MiscApiController::class, 'languages']);
 
+    // مسارات فحص حالة الموقع والتطبيق العامة
+    Route::match(['get', 'post'], 'system/status', [\App\Http\Controllers\SystemSettingController::class, 'statusApi']);
+    Route::match(['get', 'post'], 'app-status', [\App\Http\Controllers\SystemSettingController::class, 'statusApi']);
+    Route::match(['get', 'post'], 'system-status', [\App\Http\Controllers\SystemSettingController::class, 'statusApi']);
+
 Route::middleware('auth:sanctum')->group(function () {
     // 6. مسارات الإشعارات والمنوعات
     Route::post('misc/notifications.php', [MiscApiController::class, 'listNotifications']);

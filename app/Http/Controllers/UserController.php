@@ -11,23 +11,51 @@ use Illuminate\Validation\Rules;
 class UserController extends Controller
 {
     /**
-     * عرض كل المستخدمين
+     * عرض كل المستخدمين مع التصفح والبحث السريع
      */
-    public function allUsers()
+    public function allUsers(Request $request)
     {
-        // عرض الأعضاء العاديين (دورهم user)
-        $users = User::where('role', 'user')->latest()->get();
-        return view('admin.users.all_users', compact('users'));
+        $search = trim($request->input('search', ''));
+
+        $users = User::where('role', 'user')
+            ->when(!empty($search), function ($query) use ($search) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('first_name', 'like', "%{$search}%")
+                      ->orWhere('last_name', 'like', "%{$search}%")
+                      ->orWhere('email', 'like', "%{$search}%")
+                      ->orWhere('phone_number', 'like', "%{$search}%");
+                });
+            })
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->paginate(25)
+            ->withQueryString();
+
+        return view('admin.users.all_users', compact('users', 'search'));
     }
 
     /**
      * عرض كل المديرين
      */
-    public function allAdmin()
+    public function allAdmin(Request $request)
     {
-        // عرض المدراء (دورهم admin)
-        $users = User::where('role', 'admin')->latest()->get();
-        return view('admin.users.all_admin', compact('users'));
+        $search = trim($request->input('search', ''));
+
+        $users = User::where('role', 'admin')
+            ->when(!empty($search), function ($query) use ($search) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('first_name', 'like', "%{$search}%")
+                      ->orWhere('last_name', 'like', "%{$search}%")
+                      ->orWhere('email', 'like', "%{$search}%")
+                      ->orWhere('phone_number', 'like', "%{$search}%");
+                });
+            })
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->paginate(25)
+            ->withQueryString();
+
+        return view('admin.users.all_admin', compact('users', 'search'));
     }
 
     /**

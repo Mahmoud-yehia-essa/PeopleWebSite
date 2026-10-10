@@ -3,6 +3,7 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\DB;
 
 return new class extends Migration
 {
@@ -11,42 +12,30 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('messages', function (Blueprint $table) {
-            try {
-                if (method_exists(Schema::class, 'hasIndex') && !Schema::hasIndex('messages', 'idx_messages_direct')) {
-                    $table->index(['sender_id', 'receiver_id', 'id'], 'idx_messages_direct');
-                } elseif (!method_exists(Schema::class, 'hasIndex')) {
-                    $table->index(['sender_id', 'receiver_id', 'id'], 'idx_messages_direct');
-                }
-            } catch (\Throwable $e) {}
+        $existingIndexes = [];
+        try {
+            $indexes = DB::select("SHOW INDEX FROM `messages`");
+            foreach ($indexes as $idx) {
+                $existingIndexes[$idx->Key_name] = true;
+            }
+        } catch (\Throwable $e) {}
 
-            try {
-                if (method_exists(Schema::class, 'hasIndex') && !Schema::hasIndex('messages', 'idx_messages_reverse')) {
-                    $table->index(['receiver_id', 'sender_id', 'id'], 'idx_messages_reverse');
-                } elseif (!method_exists(Schema::class, 'hasIndex')) {
-                    $table->index(['receiver_id', 'sender_id', 'id'], 'idx_messages_reverse');
-                }
-            } catch (\Throwable $e) {}
+        Schema::table('messages', function (Blueprint $table) use ($existingIndexes) {
+            if (!isset($existingIndexes['idx_messages_direct'])) {
+                $table->index(['sender_id', 'receiver_id', 'id'], 'idx_messages_direct');
+            }
 
-            try {
-                if (Schema::hasColumn('messages', 'group_id')) {
-                    if (method_exists(Schema::class, 'hasIndex') && !Schema::hasIndex('messages', 'idx_messages_group')) {
-                        $table->index(['group_id', 'id'], 'idx_messages_group');
-                    } elseif (!method_exists(Schema::class, 'hasIndex')) {
-                        $table->index(['group_id', 'id'], 'idx_messages_group');
-                    }
-                }
-            } catch (\Throwable $e) {}
+            if (!isset($existingIndexes['idx_messages_reverse'])) {
+                $table->index(['receiver_id', 'sender_id', 'id'], 'idx_messages_reverse');
+            }
 
-            try {
-                if (Schema::hasColumn('messages', 'is_read')) {
-                    if (method_exists(Schema::class, 'hasIndex') && !Schema::hasIndex('messages', 'idx_messages_unread')) {
-                        $table->index(['receiver_id', 'is_read'], 'idx_messages_unread');
-                    } elseif (!method_exists(Schema::class, 'hasIndex')) {
-                        $table->index(['receiver_id', 'is_read'], 'idx_messages_unread');
-                    }
-                }
-            } catch (\Throwable $e) {}
+            if (Schema::hasColumn('messages', 'group_id') && !isset($existingIndexes['idx_messages_group'])) {
+                $table->index(['group_id', 'id'], 'idx_messages_group');
+            }
+
+            if (Schema::hasColumn('messages', 'is_read') && !isset($existingIndexes['idx_messages_unread'])) {
+                $table->index(['receiver_id', 'is_read'], 'idx_messages_unread');
+            }
         });
     }
 
@@ -55,23 +44,27 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('messages', function (Blueprint $table) {
-            try {
+        $existingIndexes = [];
+        try {
+            $indexes = DB::select("SHOW INDEX FROM `messages`");
+            foreach ($indexes as $idx) {
+                $existingIndexes[$idx->Key_name] = true;
+            }
+        } catch (\Throwable $e) {}
+
+        Schema::table('messages', function (Blueprint $table) use ($existingIndexes) {
+            if (isset($existingIndexes['idx_messages_direct'])) {
                 $table->dropIndex('idx_messages_direct');
-            } catch (\Throwable $e) {}
-            try {
+            }
+            if (isset($existingIndexes['idx_messages_reverse'])) {
                 $table->dropIndex('idx_messages_reverse');
-            } catch (\Throwable $e) {}
-            try {
-                if (Schema::hasColumn('messages', 'group_id')) {
-                    $table->dropIndex('idx_messages_group');
-                }
-            } catch (\Throwable $e) {}
-            try {
-                if (Schema::hasColumn('messages', 'is_read')) {
-                    $table->dropIndex('idx_messages_unread');
-                }
-            } catch (\Throwable $e) {}
+            }
+            if (isset($existingIndexes['idx_messages_group'])) {
+                $table->dropIndex('idx_messages_group');
+            }
+            if (isset($existingIndexes['idx_messages_unread'])) {
+                $table->dropIndex('idx_messages_unread');
+            }
         });
     }
 };

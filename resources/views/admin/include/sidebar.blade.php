@@ -216,6 +216,8 @@
                 <div class="menu-title">الإعدادات</div>
             </a>
             <ul>
+                <li> <a href="{{ route('admin.system_settings.index') }}"><i class='bx bx-radio-circle'></i>حالة الموقع والتطبيق</a>
+                </li>
                 <li> <a href="{{ route('admin.app_versions.index') }}"><i class='bx bx-radio-circle'></i>إصدارات التطبيق</a>
                 </li>
                 <li> <a href="{{ route('admin.app_versions.create') }}"><i class='bx bx-radio-circle'></i>إضافة إصدار جديد</a>

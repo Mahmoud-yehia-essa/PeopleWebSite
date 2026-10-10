@@ -18,6 +18,7 @@ use App\Http\Controllers\HashtagController;
 use App\Http\Controllers\SupportTicketController;
 use App\Http\Controllers\WiseCommitteeController;
 use App\Http\Controllers\AppVersionController;
+use App\Http\Controllers\SystemSettingController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\ChatController;
 use App\Http\Controllers\CallController;
@@ -359,6 +360,12 @@ Route::middleware(['auth', 'admin'])->group(function () {
     Route::get('/admin/app-versions/edit/{id}', [AppVersionController::class, 'edit'])->name('admin.app_versions.edit');
     Route::post('/admin/app-versions/update', [AppVersionController::class, 'update'])->name('admin.app_versions.update');
     Route::get('/admin/app-versions/delete/{id}', [AppVersionController::class, 'destroy'])->name('admin.app_versions.delete');
+
+    // إعدادات حالة تشغيل الموقع والتطبيق (System & Maintenance Settings)
+    Route::get('/admin/system-settings', [SystemSettingController::class, 'index'])->name('admin.system_settings.index');
+    Route::post('/admin/system-settings/update', [SystemSettingController::class, 'update'])->name('admin.system_settings.update');
+    Route::post('/admin/system-settings/toggle-website', [SystemSettingController::class, 'toggleWebsite'])->name('admin.system_settings.toggle_website');
+    Route::post('/admin/system-settings/toggle-app', [SystemSettingController::class, 'toggleApp'])->name('admin.system_settings.toggle_app');
 });
 
 // تسجيل مسارات تجريبية (Placeholder Routes) للمسارات المستعملة في القائمة الجانبية والشاشات لتجنب الأخطاء
