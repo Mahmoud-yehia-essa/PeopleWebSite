@@ -23,11 +23,11 @@ class CheckAppStatus
         }
 
         // 2. التحقق من حالة التطبيق
-        $settings = SystemSetting::getSettings();
-        $isAppActive = (bool)($settings->is_app_active ?? true);
+        $isAppActive = SystemSetting::isAppActive();
 
         if (!$isAppActive) {
-            $message = !empty($settings->app_maintenance_message)
+            $settings = SystemSetting::getSettings();
+            $message = is_object($settings) && !empty($settings->app_maintenance_message)
                 ? $settings->app_maintenance_message
                 : 'التطبيق متوقف مؤقتاً لأعمال الصيانة والتطوير، يرجى المحاولة لاحقاً.';
 

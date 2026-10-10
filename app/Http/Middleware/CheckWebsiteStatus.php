@@ -24,8 +24,7 @@ class CheckWebsiteStatus
         }
 
         // 2. التحقق من حالة الموقع الإلكتروني
-        $settings = SystemSetting::getSettings();
-        $isWebsiteActive = (bool)($settings->is_website_active ?? true);
+        $isWebsiteActive = SystemSetting::isWebsiteActive();
 
         if (!$isWebsiteActive) {
             // السماح لمدير النظام بتصفح ومعاينة الموقع بحرية
@@ -33,7 +32,8 @@ class CheckWebsiteStatus
                 return $next($request);
             }
 
-            $message = !empty($settings->website_maintenance_message)
+            $settings = SystemSetting::getSettings();
+            $message = is_object($settings) && !empty($settings->website_maintenance_message)
                 ? $settings->website_maintenance_message
                 : 'الموقع متوقف مؤقتاً لأعمال الصيانة والتطوير، وسنعود للعمل قريباً.';
 

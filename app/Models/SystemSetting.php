@@ -21,26 +21,28 @@ class SystemSetting extends Model
         'is_app_active'     => 'boolean',
     ];
 
-    public const CACHE_KEY = 'system_settings_cache';
+    public const CACHE_KEY = 'system_settings_array_cache';
 
     protected static function booted()
     {
         static::saved(function () {
             Cache::forget(self::CACHE_KEY);
+            Cache::forget('system_settings_cache');
         });
 
         static::deleted(function () {
             Cache::forget(self::CACHE_KEY);
+            Cache::forget('system_settings_cache');
         });
     }
 
     /**
-     * جلب إعدادات النظام الحالية مع التخزين المؤقت وحماية الأخطاء
+     * جلب إعدادات النظام الحالية بصيغة مصفوفة آمنة تماماً للتخزين المؤقت وتجنب أخطاء Incomplete Class
      */
     public static function getSettings()
     {
         try {
-            return Cache::remember(self::CACHE_KEY, 3600, function () {
+            $data = Cache::remember(self::CACHE_KEY, 3600, function () {
                 $setting = static::first();
                 if (!$setting) {
                     $setting = static::create([
@@ -50,10 +52,37 @@ class SystemSetting extends Model
                         'app_maintenance_message'     => 'التطبيق متوقف مؤقتاً لأعمال الصيانة والتطوير، يرجى المحاولة لاحقاً.',
                     ]);
                 }
-                return $setting;
+                return [
+                    'id'                          => $setting->id,
+                    'is_website_active'           => (bool)$setting->is_website_active,
+                    'website_maintenance_message' => $setting->website_maintenance_message ?: 'الموقع متوقف مؤقتاً لأعمال الصيانة والتطوير، وسنعود للعمل قريباً.',
+                    'is_app_active'               => (bool)$setting->is_app_active,
+                    'app_maintenance_message'     => $setting->app_maintenance_message ?: 'التطبيق متوقف مؤقتاً لأعمال الصيانة والتطوير، يرجى المحاولة لاحقاً.',
+                ];
             });
+
+            if (is_array($data)) {
+                return (object)$data;
+            }
+
+            if (is_object($data) && !($data instanceof \__PHP_Incomplete_Class)) {
+                return $data;
+            }
+
+            // إذا كان هناك أي كائن غير مكتمل في الكاش، نفرغ الكاش ونعيد القيم الافتراضية
+            Cache::forget(self::CACHE_KEY);
+            Cache::forget('system_settings_cache');
+
+            return (object)[
+                'id'                          => 1,
+                'is_website_active'           => true,
+                'website_maintenance_message' => 'الموقع متوقف مؤقتاً لأعمال الصيانة والتطوير، وسنعود للعمل قريباً.',
+                'is_app_active'               => true,
+                'app_maintenance_message'     => 'التطبيق متوقف مؤقتاً لأعمال الصيانة والتطوير، يرجى المحاولة لاحقاً.',
+            ];
         } catch (\Throwable $e) {
             return (object)[
+                'id'                          => 1,
                 'is_website_active'           => true,
                 'website_maintenance_message' => 'الموقع متوقف مؤقتاً لأعمال الصيانة والتطوير، وسنعود للعمل قريباً.',
                 'is_app_active'               => true,
@@ -86,5 +115,6 @@ class SystemSetting extends Model
     public static function clearCache(): void
     {
         Cache::forget(self::CACHE_KEY);
+        Cache::forget('system_settings_cache');
     }
 }
