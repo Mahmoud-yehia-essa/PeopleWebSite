@@ -6,7 +6,6 @@ use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 use App\Models\SystemSetting;
-use Illuminate\Support\Facades\Auth;
 
 class CheckWebsiteStatus
 {
@@ -18,7 +17,7 @@ class CheckWebsiteStatus
      */
     public function handle(Request $request, Closure $next): Response
     {
-        // 1. استثناء مسارات لوحة التحكم وتسجيل الدخول والخروج والمسارات الحيوية
+        // 1. استثناء مسارات لوحة التحكم وتسجيل الدخول والخروج والمسارات الحيوية الخاصة بالإدارة
         if ($this->shouldPassThrough($request)) {
             return $next($request);
         }
@@ -27,13 +26,8 @@ class CheckWebsiteStatus
         $isWebsiteActive = SystemSetting::isWebsiteActive();
 
         if (!$isWebsiteActive) {
-            // السماح لمدير النظام بتصفح ومعاينة الموقع بحرية
-            if (Auth::check() && (Auth::user()->role === 'admin' || Auth::user()->role === 'superadmin')) {
-                return $next($request);
-            }
-
             $settings = SystemSetting::getSettings();
-            $message = is_object($settings) && !empty($settings->website_maintenance_message)
+            $message = (is_object($settings) && !empty($settings->website_maintenance_message))
                 ? $settings->website_maintenance_message
                 : 'الموقع متوقف مؤقتاً لأعمال الصيانة والتطوير، وسنعود للعمل قريباً.';
 
@@ -57,7 +51,7 @@ class CheckWebsiteStatus
     }
 
     /**
-     * فحص هل المسار مستثنى من وضع الصيانة
+     * فحص هل المسار مستثنى من وضع الصيانة (لوحة التحكم ومسارات الأدمن دائماً مستثناة)
      */
     protected function shouldPassThrough(Request $request): bool
     {
