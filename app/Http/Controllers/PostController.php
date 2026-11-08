@@ -435,37 +435,45 @@ class PostController extends Controller
                 ->unique()
                 ->toArray();
             
-            // Suggest users excluding current user and existing relations
-            $suggestedFriends = \App\Models\User::where('id', '!=', $currentUserId)
-                ->whereNotIn('id', $existingRelationsUserIds)
-                ->where('is_active', 1)
-                ->get()
-                ->map(function($potentialUser) use ($myFriendIds) {
-                    // Count mutual friends
-                    $theirFriendships = \App\Models\Friendship::where('is_active', 1)
-                        ->where(function($q) use ($potentialUser) {
-                            $q->where('sender_id', $potentialUser->id)
-                              ->orWhere('receiver_id', $potentialUser->id);
-                        })
-                        ->get();
-                    
-                    $theirFriendIds = [];
-                    foreach ($theirFriendships as $fs) {
-                        $theirFriendIds[] = ($fs->sender_id == $potentialUser->id) ? $fs->receiver_id : $fs->sender_id;
+            // 1. حساب الأصدقاء المشتركين المقترحين بذكاء وبدون سحب كامل جدول المستخدمين
+            $mutualCandidates = [];
+            $mutualCounts = [];
+            if (!empty($myFriendIds)) {
+                $candidateFriendships = \App\Models\Friendship::where('is_active', 1)
+                    ->where(function($q) use ($myFriendIds) {
+                        $q->whereIn('sender_id', $myFriendIds)
+                          ->orWhereIn('receiver_id', $myFriendIds);
+                    })
+                    ->get();
+
+                foreach ($candidateFriendships as $fs) {
+                    $candId = in_array($fs->sender_id, $myFriendIds) ? $fs->receiver_id : $fs->sender_id;
+                    if ($candId != $currentUserId && !in_array($candId, $existingRelationsUserIds)) {
+                        $mutualCounts[$candId] = ($mutualCounts[$candId] ?? 0) + 1;
                     }
-                    
-                    $mutualFriends = array_intersect($myFriendIds, $theirFriendIds);
-                    $potentialUser->mutual_count = count($mutualFriends);
-                    return $potentialUser;
-                })
-                // Sort by mutual friends count descending, then randomize
-                ->sort(function($a, $b) {
-                    if ($a->mutual_count === $b->mutual_count) {
-                        return rand(-1, 1);
-                    }
-                    return $b->mutual_count <=> $a->mutual_count;
-                })
-                ->take(5);
+                }
+                arsort($mutualCounts);
+                $mutualCandidates = array_slice(array_keys($mutualCounts), 0, 5);
+            }
+
+            // 2. إذا لم يكتمل العدد 5، جلب مرشحين إضافيين بشكل عشوائي ومحدود
+            $excludeIds = array_unique(array_merge([$currentUserId], $existingRelationsUserIds, $mutualCandidates));
+            $needed = 5 - count($mutualCandidates);
+            $fallbackIds = [];
+            if ($needed > 0) {
+                $fallbackIds = \App\Models\User::where('is_active', 1)
+                    ->whereNotIn('id', $excludeIds)
+                    ->inRandomOrder()
+                    ->take($needed)
+                    ->pluck('id')
+                    ->toArray();
+            }
+
+            $targetUserIds = array_merge($mutualCandidates, $fallbackIds);
+            $suggestedFriends = \App\Models\User::whereIn('id', $targetUserIds)->get()->map(function($potentialUser) use ($mutualCounts) {
+                $potentialUser->mutual_count = $mutualCounts[$potentialUser->id] ?? 0;
+                return $potentialUser;
+            });
         } else {
             $suggestedFriends = \App\Models\User::where('is_active', 1)->inRandomOrder()->take(5)->get()->map(function($u) {
                 $u->mutual_count = 0;
