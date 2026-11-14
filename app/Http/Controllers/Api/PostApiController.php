@@ -27,8 +27,8 @@ class PostApiController extends Controller
         $currentUser = $request->user() ?? auth('sanctum')->user();
         $currentUserId = $currentUser ? $currentUser->id : 0;
         
-        $limit = $request->input('limit', 10);
-        $offset = $request->input('offset', 0);
+        $limit = max(1, (int)$request->input('limit', 10));
+        $offset = max(0, (int)$request->input('offset', 0));
         
         // بناء الاستعلام الأساسي مع جلب علاقة الناشر والوسائط والاستطلاع والخيارات والتثبيت
         $query = Post::with(['user', 'media', 'poll.options', 'pin'])->where('is_active', 1);
@@ -84,7 +84,11 @@ class PostApiController extends Controller
                        ->get();
 
         // دالة مساعدة لتشكيل المنشور لتطابق تماما ما يتوقعه Flutter
-        $mapPost = function ($post) use ($currentUser, $currentUserId, $request) {
+        $unknownUserLabel = ($request->input('lang') === 'en' || app()->getLocale() === 'en')
+            ? 'Unknown User'
+            : 'مستخدم غير معروف';
+
+        $mapPost = function ($post) use ($currentUser, $currentUserId, $request, $unknownUserLabel) {
             $isLiked = $currentUserId > 0 ? Reaction::where('user_id', $currentUserId)
                                ->where('content_id', $post->id)
                                ->where('content_type_id', 1)
@@ -138,7 +142,11 @@ class PostApiController extends Controller
 
             if ($post->poll) {
                 $question = $post->poll->question;
-                $expiresAt = $post->poll->expires_at ? $post->poll->expires_at->toDateTimeString() : null;
+                try {
+                    $expiresAt = $post->poll->expires_at ? $post->poll->expires_at->toDateTimeString() : null;
+                } catch (\Throwable $e) {
+                    $expiresAt = null;
+                }
                 $totalVotes = (int)$post->poll->total_votes;
 
                 // جلب خيارات الاستبيان
@@ -182,6 +190,13 @@ class PostApiController extends Controller
                 $wiseRating = (float)$post->wise_rating;
             }
 
+            $timeAgo = '';
+            try {
+                $timeAgo = $post->created_at ? $post->created_at->diffForHumans() : '';
+            } catch (\Throwable $e) {
+                $timeAgo = '';
+            }
+
             return [
                 'post_id'            => (int)$post->id,
                 'user_id'            => (int)$post->user_id,
@@ -190,10 +205,12 @@ class PostApiController extends Controller
                 'like_count'         => (int)$post->like_count,
                 'comment_count'      => Comment::where('post_id', $post->id)->where('is_active', 1)->count(),
                 'share_count'        => (int)$post->share_count,
-                'first_name'         => $post->user->first_name ?? '',
-                'last_name'          => $post->user->last_name ?? '',
-                'time_ago'           => $post->created_at ? $post->created_at->diffForHumans() : '',
-                'profile_picture'    => $post->user->profile_picture ?: asset('images/default_profile.png'),
+                'first_name'         => $post->user ? ($post->user->first_name ?? '') : $unknownUserLabel,
+                'last_name'          => $post->user ? ($post->user->last_name ?? '') : '',
+                'time_ago'           => $timeAgo,
+                'profile_picture'    => ($post->user && $post->user->profile_picture)
+                    ? $post->user->profile_picture
+                    : asset('images/default_profile.png'),
                 'post_type_id'       => $post->poll ? 2 : 1,
                 'media'              => $mediaArray,
                 'question'           => $question,
@@ -231,7 +248,7 @@ class PostApiController extends Controller
         return response()->json([
             'success' => true,
             'data'    => $formattedData
-        ]);
+        ], 200, [], JSON_INVALID_UTF8_SUBSTITUTE);
     }
 
     /**
