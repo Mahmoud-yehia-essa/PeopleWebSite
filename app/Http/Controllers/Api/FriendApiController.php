@@ -478,41 +478,85 @@ class FriendApiController extends Controller
                 ->unique()
                 ->toArray();
 
-            $usersQuery = User::where('id', '!=', $userId)
-                ->whereNotIn('id', $existingRelationsUserIds)
-                ->where('is_active', 1);
+            $excludeIds = array_unique(array_merge([$userId], $existingRelationsUserIds));
+            $mutualCandidates = [];
+            $mutualCounts = [];
 
-            if (!empty($search)) {
-                $usersQuery->where(function($q) use ($search) {
-                    $q->where('first_name', 'LIKE', '%' . $search . '%')
-                      ->orWhere('last_name', 'LIKE', '%' . $search . '%')
-                      ->orWhere('email', 'LIKE', '%' . $search . '%');
-                });
+            if (!empty($myFriendIds) && empty($search)) {
+                $candidateFriendships = Friendship::where('is_active', 1)
+                    ->where(function($q) use ($myFriendIds) {
+                        $q->whereIn('sender_id', $myFriendIds)
+                          ->orWhereIn('receiver_id', $myFriendIds);
+                    })
+                    ->get();
+
+                foreach ($candidateFriendships as $fs) {
+                    $candId = in_array($fs->sender_id, $myFriendIds) ? $fs->receiver_id : $fs->sender_id;
+                    if (!in_array($candId, $excludeIds)) {
+                        $mutualCounts[$candId] = ($mutualCounts[$candId] ?? 0) + 1;
+                    }
+                }
+                arsort($mutualCounts);
+                $mutualCandidates = array_keys($mutualCounts);
             }
 
-            $allSuggested = $usersQuery->get()->map(function($potentialUser) use ($myFriendIds) {
-                $theirFriendships = Friendship::where('is_active', 1)
-                    ->where(function($q) use ($potentialUser) {
-                        $q->where('sender_id', $potentialUser->id)
-                          ->orWhere('receiver_id', $potentialUser->id);
-                    })->get();
+            if (!empty($search)) {
+                $usersQuery = User::where('id', '!=', $userId)
+                    ->whereNotIn('id', $existingRelationsUserIds)
+                    ->where('is_active', 1)
+                    ->where(function($q) use ($search) {
+                        $q->where('first_name', 'LIKE', '%' . $search . '%')
+                          ->orWhere('last_name', 'LIKE', '%' . $search . '%')
+                          ->orWhere('email', 'LIKE', '%' . $search . '%');
+                    });
 
-                $theirFriendIds = [];
-                foreach ($theirFriendships as $fs) {
-                    $theirFriendIds[] = ($fs->sender_id == $potentialUser->id) ? $fs->receiver_id : $fs->sender_id;
+                $totalCount = $usersQuery->count();
+                $usersList = $usersQuery->offset($offset)->limit($limit)->get()->map(function($potentialUser) {
+                    $potentialUser->mutual_count = 0;
+                    $potentialUser->friendship_type = 'suggested';
+                    return $potentialUser;
+                });
+                $hasMore = $totalCount > ($offset + $limit);
+            } else {
+                $totalMutual = count($mutualCandidates);
+                $targetIds = [];
+
+                if ($offset < $totalMutual) {
+                    $targetIds = array_slice($mutualCandidates, $offset, $limit);
                 }
 
-                $mutualFriends = array_intersect($myFriendIds, $theirFriendIds);
-                $potentialUser->mutual_count = count($mutualFriends);
-                $potentialUser->friendship_type = 'suggested';
-                return $potentialUser;
-            })->sort(function($a, $b) {
-                return $b->mutual_count <=> $a->mutual_count;
-            })->values();
+                $neededFromGeneral = $limit - count($targetIds);
+                if ($neededFromGeneral > 0) {
+                    $generalOffset = max(0, $offset - $totalMutual);
+                    $allExclude = array_unique(array_merge($excludeIds, $mutualCandidates));
+                    $generalIds = User::where('is_active', 1)
+                        ->whereNotIn('id', $allExclude)
+                        ->orderBy('id', 'desc')
+                        ->skip($generalOffset)
+                        ->take($neededFromGeneral)
+                        ->pluck('id')
+                        ->toArray();
+                    $targetIds = array_merge($targetIds, $generalIds);
+                }
 
-            $totalCount = $allSuggested->count();
-            $usersList = $allSuggested->slice($offset, $limit)->values();
-            $hasMore = $totalCount > ($offset + $limit);
+                $totalCount = $totalMutual + User::where('is_active', 1)->whereNotIn('id', array_unique(array_merge($excludeIds, $mutualCandidates)))->count();
+                $hasMore = $totalCount > ($offset + $limit);
+
+                if (!empty($targetIds)) {
+                    $fetchedUsers = User::whereIn('id', $targetIds)->get()->keyBy('id');
+                    $usersList = collect($targetIds)->map(function($id) use ($fetchedUsers, $mutualCounts) {
+                        if (isset($fetchedUsers[$id])) {
+                            $u = $fetchedUsers[$id];
+                            $u->mutual_count = (int)($mutualCounts[$id] ?? 0);
+                            $u->friendship_type = 'suggested';
+                            return $u;
+                        }
+                        return null;
+                    })->filter()->values();
+                } else {
+                    $usersList = collect();
+                }
+            }
 
         } elseif ($filter === 'pending') {
             // طلبات الصداقة الواردة
