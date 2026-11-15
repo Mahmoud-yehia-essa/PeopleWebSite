@@ -721,51 +721,57 @@ class MiscApiController extends Controller
         $langCode = strtolower($request->input('lang', 'ar'));
         $langId = $request->input('language_id');
 
-        $language = null;
-        if ($langId) {
-            $language = Language::find($langId);
-        }
-        if (!$language && $langCode) {
-            $language = Language::where('code', $langCode)->first();
-        }
-        if (!$language) {
-            $language = Language::where('is_default', 1)->first() ?? Language::first();
-        }
+        $cacheKey = "api_dictionary_{$langCode}_" . ($langId ?? 'default');
 
-        $dictionary = [];
-
-        // 1. جلب كافة الترجمات من جدول translations التابع للغة
-        if ($language) {
-            $translations = Translation::where('language_id', $language->id)->get();
-            foreach ($translations as $tr) {
-                if (!empty($tr->key)) {
-                    $dictionary[$tr->key] = $tr->value;
-                }
+        $data = \Illuminate\Support\Facades\Cache::remember($cacheKey, 86400, function () use ($langCode, $langId) {
+            $language = null;
+            if ($langId) {
+                $language = Language::find($langId);
             }
-        }
+            if (!$language && $langCode) {
+                $language = Language::where('code', $langCode)->first();
+            }
+            if (!$language) {
+                $language = Language::where('is_default', 1)->first() ?? Language::first();
+            }
 
-        // 2. دمج مع جدول Dictionary القديم كـ Fallback لتغطية أي مفاتيح غير مترجمة
-        if (in_array($langCode, ['ar', 'en'])) {
-            try {
-                $legacyItems = Dictionary::select('key', $langCode)->get();
-                foreach ($legacyItems as $item) {
-                    if (!isset($dictionary[$item->key]) && !empty($item->$langCode)) {
-                        $dictionary[$item->key] = $item->$langCode;
+            $dict = [];
+            if ($language) {
+                $translations = Translation::where('language_id', $language->id)->get();
+                foreach ($translations as $tr) {
+                    if (!empty($tr->key)) {
+                        $dict[$tr->key] = $tr->value;
                     }
                 }
-            } catch (\Exception $e) {}
-        }
+            }
+
+            if (in_array($langCode, ['ar', 'en'])) {
+                try {
+                    $legacyItems = Dictionary::select('key', $langCode)->get();
+                    foreach ($legacyItems as $item) {
+                        if (!isset($dict[$item->key]) && !empty($item->$langCode)) {
+                            $dict[$item->key] = $item->$langCode;
+                        }
+                    }
+                } catch (\Exception $e) {}
+            }
+
+            return [
+                'language' => $language ? [
+                    'id'        => (int)$language->id,
+                    'name'      => $language->name,
+                    'code'      => $language->code,
+                    'flag_path' => $language->flag_path,
+                    'direction' => $language->direction,
+                ] : null,
+                'dictionary' => $dict,
+            ];
+        });
 
         return response()->json([
             'success'    => true,
-            'language'   => $language ? [
-                'id'        => (int)$language->id,
-                'name'      => $language->name,
-                'code'      => $language->code,
-                'flag_path' => $language->flag_path,
-                'direction' => $language->direction,
-            ] : null,
-            'dictionary' => (object)$dictionary
+            'language'   => $data['language'],
+            'dictionary' => (object)$data['dictionary'],
         ]);
     }
 

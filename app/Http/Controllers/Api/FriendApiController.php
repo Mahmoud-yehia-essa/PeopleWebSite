@@ -442,7 +442,12 @@ class FriendApiController extends Controller
             ->where('sender_id', $userId)
             ->count();
 
-        $mutualContactsCount = User::where('is_active', 1)->where('id', '!=', $userId)->count();
+        $mutualContactsCount = \Illuminate\Support\Facades\Cache::remember('active_users_count', 600, function() {
+            return User::where('is_active', 1)->count();
+        });
+        if ($userId) {
+            $mutualContactsCount = max(0, $mutualContactsCount - 1);
+        }
 
         // 2. الفلترة والتصفح
         $filter = $request->input('filter', 'suggested'); // suggested, all, pending, sent_requests, recent
@@ -526,6 +531,7 @@ class FriendApiController extends Controller
                 }
 
                 $neededFromGeneral = $limit - count($targetIds);
+                $hasMore = false;
                 if ($neededFromGeneral > 0) {
                     $generalOffset = max(0, $offset - $totalMutual);
                     $allExclude = array_unique(array_merge($excludeIds, $mutualCandidates));
@@ -533,14 +539,18 @@ class FriendApiController extends Controller
                         ->whereNotIn('id', $allExclude)
                         ->orderBy('id', 'desc')
                         ->skip($generalOffset)
-                        ->take($neededFromGeneral)
+                        ->take($neededFromGeneral + 1)
                         ->pluck('id')
                         ->toArray();
-                    $targetIds = array_merge($targetIds, $generalIds);
-                }
 
-                $totalCount = $totalMutual + User::where('is_active', 1)->whereNotIn('id', array_unique(array_merge($excludeIds, $mutualCandidates)))->count();
-                $hasMore = $totalCount > ($offset + $limit);
+                    if (count($generalIds) > $neededFromGeneral) {
+                        $hasMore = true;
+                        $generalIds = array_slice($generalIds, 0, $neededFromGeneral);
+                    }
+                    $targetIds = array_merge($targetIds, $generalIds);
+                } else {
+                    $hasMore = ($offset + $limit) < $totalMutual;
+                }
 
                 if (!empty($targetIds)) {
                     $fetchedUsers = User::whereIn('id', $targetIds)->get()->keyBy('id');
