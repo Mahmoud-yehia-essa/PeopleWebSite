@@ -21,6 +21,7 @@ use App\Models\HashtagLink;
     'like_count',
     'comment_count',
     'share_count',
+    'view_count',
     'is_active',
     'parent_id',
     'post_type_id',

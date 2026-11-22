@@ -1091,6 +1091,117 @@ $(document).ready(function() {
             }
         }
     });
+
+    // --- Batched Post View Tracking via IntersectionObserver (50% visibility + 1s dwell) ---
+    (function initWebPostViewTracker() {
+        if (typeof IntersectionObserver === 'undefined') return;
+
+        const recordedIds = new Set();
+        const pendingIds = new Set();
+        const dwellTimers = new Map();
+        let flushTimer = null;
+
+        function flushPostViews(useBeacon) {
+            if (flushTimer) {
+                clearTimeout(flushTimer);
+                flushTimer = null;
+            }
+            if (pendingIds.size === 0) return;
+
+            const batch = Array.from(pendingIds).slice(0, 50);
+            batch.forEach(id => pendingIds.delete(id));
+
+            const csrfToken = $('meta[name="csrf-token"]').attr('content') || '{{ csrf_token() }}';
+            const url = '{{ route("frontend.posts.record_views") }}';
+
+            if (useBeacon && navigator.sendBeacon) {
+                const formData = new FormData();
+                formData.append('_token', csrfToken);
+                batch.forEach(id => formData.append('post_ids[]', id));
+                navigator.sendBeacon(url, formData);
+                return;
+            }
+
+            $.ajax({
+                url: url,
+                type: 'POST',
+                data: {
+                    _token: csrfToken,
+                    post_ids: batch
+                },
+                dataType: 'json',
+                success: function(res) {
+                    if (res && res.success && res.views) {
+                        Object.keys(res.views).forEach(function(pid) {
+                            $(`.post-view-badge[data-post-id="${pid}"] .post-view-count`).text(res.views[pid]);
+                        });
+                    }
+                }
+            });
+        }
+
+        function queuePostView(postId) {
+            if (!postId || recordedIds.has(postId)) return;
+            recordedIds.add(postId);
+            pendingIds.add(postId);
+
+            if (pendingIds.size >= 10) {
+                flushPostViews(false);
+            } else if (!flushTimer) {
+                flushTimer = setTimeout(() => flushPostViews(false), 4000);
+            }
+        }
+
+        const observer = new IntersectionObserver(function(entries) {
+            entries.forEach(function(entry) {
+                const postId = parseInt(entry.target.getAttribute('data-view-track-id') || '0', 10);
+                if (!postId || recordedIds.has(postId)) {
+                    observer.unobserve(entry.target);
+                    return;
+                }
+
+                if (entry.isIntersecting && entry.intersectionRatio >= 0.5) {
+                    if (!dwellTimers.has(postId)) {
+                        const timerId = setTimeout(function() {
+                            dwellTimers.delete(postId);
+                            queuePostView(postId);
+                            observer.unobserve(entry.target);
+                        }, 1000);
+                        dwellTimers.set(postId, timerId);
+                    }
+                } else if (dwellTimers.has(postId)) {
+                    clearTimeout(dwellTimers.get(postId));
+                    dwellTimers.delete(postId);
+                }
+            });
+        }, { threshold: [0.5] });
+
+        function observePostCards() {
+            document.querySelectorAll('.post-view-badge[data-post-id]').forEach(function(badge) {
+                const postId = badge.getAttribute('data-post-id');
+                if (!postId || recordedIds.has(parseInt(postId, 10))) return;
+                const container = badge.closest('article') || badge.closest('.bg-surface-container-lowest') || badge;
+                if (!container.getAttribute('data-view-track-id')) {
+                    container.setAttribute('data-view-track-id', postId);
+                    observer.observe(container);
+                }
+            });
+        }
+
+        observePostCards();
+        $(document).ajaxComplete(function() {
+            setTimeout(observePostCards, 150);
+        });
+
+        document.addEventListener('visibilitychange', function() {
+            if (document.visibilityState === 'hidden') {
+                flushPostViews(true);
+            }
+        });
+        window.addEventListener('pagehide', function() {
+            flushPostViews(true);
+        });
+    })();
 });
 </script>
 @endpush

@@ -63,6 +63,7 @@ Route::match(['get', 'post'], 'wise_committee.php', [PostApiController::class, '
 
 Route::prefix('post')->group(function () {
     Route::post('list_v1.php', [PostApiController::class, 'list']);
+    Route::post('record_views.php', [PostApiController::class, 'recordViews']);
     Route::match(['get', 'post'], 'hashtags.php', [PostApiController::class, 'listHashtags']);
     Route::match(['get', 'post'], 'wise_ratings.php', [PostApiController::class, 'wiseRatings']);
     Route::match(['get', 'post'], 'list_post_reactions.php', [PostApiController::class, 'listPostReactions']);

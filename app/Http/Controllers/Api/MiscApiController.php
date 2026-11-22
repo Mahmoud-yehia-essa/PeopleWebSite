@@ -623,6 +623,7 @@ class MiscApiController extends Controller
                     "like_count"         => (int)$post->like_count,
                     "comment_count"      => Comment::where("post_id", $post->id)->where("is_active", 1)->count(),
                     "share_count"        => (int)$post->share_count,
+                    "view_count"         => (int)($post->view_count ?? 0),
                     "first_name"         => $post->user->first_name ?? "",
                     "last_name"          => $post->user->last_name ?? "",
                     "time_ago"           => $post->created_at ? $post->created_at->diffForHumans() : "",

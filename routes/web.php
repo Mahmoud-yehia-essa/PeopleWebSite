@@ -419,6 +419,7 @@ Route::get('/language/switch/{code}', [LanguageController::class, 'switchLanguag
 Route::get('/posts/{id}/comments', [PostController::class, 'getPostComments'])->name('frontend.posts.comments');
 Route::get('/comments/{id}/reactions', [PostController::class, 'getCommentReactions'])->name('frontend.comments.reactions');
 Route::get('/posts/{id}/reactions', [PostController::class, 'getPostReactionsPublic'])->name('frontend.posts.reactions');
+Route::post('/posts/record-views', [\App\Http\Controllers\Api\PostApiController::class, 'recordViews'])->name('frontend.posts.record_views');
 
 Route::middleware('auth')->group(function () {
     Route::get('/profile/edit', [ProfileController::class, 'editProfile'])->name('profile.edit_form');

@@ -1196,6 +1196,7 @@ class PostController extends Controller
                 'like_count' => $post->like_count,
                 'comment_count' => $post->comment_count,
                 'share_count' => $post->share_count,
+                'view_count' => (int)($post->view_count ?? 0),
                 'is_active' => $post->is_active,
                 'post_type_id' => $post->post_type_id,
                 'created_at' => $post->created_at ? $post->created_at->diffForHumans() : 'غير محدد',

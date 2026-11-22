@@ -161,6 +161,10 @@
                                     $isSaved = true; // Since we are on saved posts list
                                 @endphp
                                 <div class="flex items-center gap-4">
+                                    <span class="post-view-badge inline-flex items-center gap-1 text-xs text-on-surface-variant/80" data-post-id="{{ $post->id }}" title="المشاهدات">
+                                        <span class="material-symbols-outlined text-[18px]">visibility</span>
+                                        <span class="post-view-count font-label-sm">{{ $post->view_count ?? 0 }}</span>
+                                    </span>
                                     <button class="toggle-save-post-btn flex items-center gap-2 hover:text-primary transition-colors text-primary cursor-pointer" data-post-id="{{ $post->id }}" data-saved="true">
                                         <span class="material-symbols-outlined fill-1">bookmark</span>
                                         <span class="font-label-sm text-label-sm save-text">{{ __t('saved') }}</span>

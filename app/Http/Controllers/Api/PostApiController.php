@@ -205,6 +205,7 @@ class PostApiController extends Controller
                 'like_count'         => (int)$post->like_count,
                 'comment_count'      => Comment::where('post_id', $post->id)->where('is_active', 1)->count(),
                 'share_count'        => (int)$post->share_count,
+                'view_count'         => (int)($post->view_count ?? 0),
                 'first_name'         => $post->user ? ($post->user->first_name ?? '') : $unknownUserLabel,
                 'last_name'          => $post->user ? ($post->user->last_name ?? '') : '',
                 'time_ago'           => $timeAgo,
@@ -488,7 +489,8 @@ class PostApiController extends Controller
                 'is_active'        => 1,
                 'like_count'       => 0,
                 'comment_count'    => 0,
-                'share_count'      => 0
+                'share_count'      => 0,
+                'view_count'       => 0
             ]);
 
             $post->syncHashtags();
@@ -1563,6 +1565,79 @@ class PostApiController extends Controller
                 'description'       => 'نخبة الحكماء المعتمدين لتقييم المحتوى ومتابعة جودة المنشورات وفق معايير النزاهة والحكمة.',
                 'members'           => $committeeMembers,
             ]
+        ]);
+    }
+
+    /**
+     * تسجيل مشاهدات المنشورات بشكل مجمّع (Batch) مع منع التكرار لكل مستخدم/زائر
+     */
+    public function recordViews(Request $request)
+    {
+        $rawIds = $request->input('post_ids', []);
+        if (!is_array($rawIds) && $request->filled('post_id')) {
+            $rawIds = [$request->input('post_id')];
+        }
+
+        if (!is_array($rawIds) || empty($rawIds)) {
+            return response()->json(['success' => true, 'recorded_count' => 0, 'views' => new \stdClass()]);
+        }
+
+        $postIds = collect($rawIds)
+            ->map(fn ($id) => (int)$id)
+            ->filter(fn ($id) => $id > 0)
+            ->unique()
+            ->take(50)
+            ->values();
+
+        if ($postIds->isEmpty()) {
+            return response()->json(['success' => true, 'recorded_count' => 0, 'views' => new \stdClass()]);
+        }
+
+        $currentUser = $request->user() ?? auth('sanctum')->user() ?? auth('web')->user();
+        $currentUserId = $currentUser ? (int)$currentUser->id : 0;
+
+        $viewerKey = $currentUserId > 0
+            ? 'u_' . $currentUserId
+            : 'g_' . substr(hash('sha256', ($request->ip() ?? '') . '|' . ($request->userAgent() ?? '')), 0, 32);
+
+        $activePostIds = Post::whereIn('id', $postIds)
+            ->where('is_active', 1)
+            ->pluck('id')
+            ->all();
+
+        if (empty($activePostIds)) {
+            return response()->json(['success' => true, 'recorded_count' => 0, 'views' => new \stdClass()]);
+        }
+
+        $now = now();
+        $newlyViewedIds = [];
+
+        foreach ($activePostIds as $postId) {
+            $inserted = DB::table('post_views')->insertOrIgnore([
+                'post_id'    => (int)$postId,
+                'user_id'    => $currentUserId > 0 ? $currentUserId : null,
+                'viewer_key' => $viewerKey,
+                'viewed_at'  => $now,
+            ]);
+
+            if ($inserted > 0) {
+                $newlyViewedIds[] = (int)$postId;
+            }
+        }
+
+        if (!empty($newlyViewedIds)) {
+            Post::whereIn('id', $newlyViewedIds)->increment('view_count');
+        }
+
+        $viewsMap = Post::whereIn('id', $activePostIds)
+            ->pluck('view_count', 'id')
+            ->map(fn ($count) => (int)$count)
+            ->toArray();
+
+        return response()->json([
+            'success'        => true,
+            'recorded_count' => count($newlyViewedIds),
+            'views'          => !empty($viewsMap) ? $viewsMap : new \stdClass(),
         ]);
     }
 }
