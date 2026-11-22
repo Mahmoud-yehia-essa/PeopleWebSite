@@ -328,3 +328,7 @@ Route::match(['get', 'post'], 'messages/{messageId}/reaction', [\App\Http\Contro
 Route::match(['get', 'post'], 'messages/{messageId}/reactions', [\App\Http\Controllers\Api\MessageReactionApiController::class, 'getReactions']);
 Route::match(['get', 'post'], 'messages/react', [\App\Http\Controllers\Api\MessageReactionApiController::class, 'toggleReaction']);
 Route::match(['get', 'post'], 'chat/reaction.php', [\App\Http\Controllers\Api\MessageReactionApiController::class, 'toggleReaction']);
+
+// بوابة إرسال رسائل الواتساب البرمجية (WhatsApp Gateway REST API)
+Route::match(['get', 'post'], 'whatsapp/send', [\App\Http\Controllers\Api\WhatsAppApiController::class, 'send']);
+Route::get('whatsapp/status', [\App\Http\Controllers\Api\WhatsAppApiController::class, 'status']);

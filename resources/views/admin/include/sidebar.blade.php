@@ -178,6 +178,14 @@
         </li>
 
         <li>
+            <a href="{{ route('admin.whatsapp.index') }}">
+                <div class="parent-icon"><i class='bx bxl-whatsapp text-success font-24'></i>
+                </div>
+                <div class="menu-title">الربط مع الواتساب</div>
+            </a>
+        </li>
+
+        <li>
             <a href="{{ route('admin.global_search') }}">
                 <div class="parent-icon"><i class='bx bx-search-alt'></i>
                 </div>

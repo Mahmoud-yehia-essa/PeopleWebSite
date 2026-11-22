@@ -331,6 +331,18 @@ Route::middleware(['auth', 'admin'])->group(function () {
     Route::get('/admin/notifications/send', [NotificationController::class, 'create'])->name('admin.notifications.create');
     Route::post('/admin/notifications/send', [NotificationController::class, 'store'])->name('admin.notifications.store');
 
+    // الربط مع الواتساب (WhatsApp Gateway)
+    Route::prefix('admin/whatsapp')->name('admin.whatsapp.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\Admin\WhatsAppController::class, 'index'])->name('index');
+        Route::get('/ajax-status', [\App\Http\Controllers\Admin\WhatsAppController::class, 'ajaxStatus'])->name('ajax_status');
+        Route::post('/pairing-code', [\App\Http\Controllers\Admin\WhatsAppController::class, 'requestPairingCode'])->name('pairing_code');
+        Route::post('/send', [\App\Http\Controllers\Admin\WhatsAppController::class, 'sendMessage'])->name('send');
+        Route::post('/disconnect', [\App\Http\Controllers\Admin\WhatsAppController::class, 'disconnect'])->name('disconnect');
+        Route::post('/settings', [\App\Http\Controllers\Admin\WhatsAppController::class, 'updateSettings'])->name('settings.update');
+        Route::post('/regenerate-api-key', [\App\Http\Controllers\Admin\WhatsAppController::class, 'regenerateApiKey'])->name('regenerate_api_key');
+        Route::post('/clear-logs', [\App\Http\Controllers\Admin\WhatsAppController::class, 'clearLogs'])->name('clear_logs');
+    });
+
     // البحث العام الشامل (Global Search Dashboard)
     Route::get('/admin/search', [SearchController::class, 'searchForm'])->name('admin.global_search');
 
