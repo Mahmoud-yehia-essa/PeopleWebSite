@@ -265,11 +265,15 @@ Route::middleware(['auth', 'admin'])->group(function () {
     Route::get('/admin/group-sites/edit/{id}', [GroupSiteController::class, 'editGroupSite'])->name('edit.group_site');
     Route::post('/admin/group-sites/update', [GroupSiteController::class, 'updateGroupSite'])->name('update.group_site');
     Route::get('/admin/group-sites/delete/{id}', [GroupSiteController::class, 'deleteGroupSite'])->name('delete.group_site');
+    Route::post('/admin/group-sites/pin', [GroupSiteController::class, 'pinGroupSite'])->name('group_sites.pin');
+    Route::post('/admin/group-sites/unpin', [GroupSiteController::class, 'unpinGroupSite'])->name('group_sites.unpin');
 
     // مسارات AJAX للتفاصيل الفرعية للمجموعات الخاصة والعامة
     Route::get('/admin/group-sites/{id}/members', [GroupSiteController::class, 'getMembers'])->name('group_sites.members');
     Route::post('/admin/group-sites/members/kick', [GroupSiteController::class, 'kickMember'])->name('group_sites.kick_member');
     Route::get('/admin/group-sites/{id}/subjects', [GroupSiteController::class, 'getSubjects'])->name('group_sites.subjects');
+    Route::post('/admin/group-sites/subjects/pin', [GroupSiteController::class, 'pinGroupSubject'])->name('group_sites.subjects.pin');
+    Route::post('/admin/group-sites/subjects/unpin', [GroupSiteController::class, 'unpinGroupSubject'])->name('group_sites.subjects.unpin');
     Route::get('/admin/group-sites/subjects/delete/{id}', [GroupSiteController::class, 'deleteSubject'])->name('group_sites.delete_subject');
     Route::get('/admin/group-sites/subjects/{subject_id}/comments', [GroupSiteController::class, 'getComments'])->name('group_sites.comments');
     Route::get('/admin/group-sites/comments/delete/{id}', [GroupSiteController::class, 'deleteComment'])->name('group_sites.delete_comment');

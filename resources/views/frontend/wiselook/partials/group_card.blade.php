@@ -27,7 +27,7 @@
     $textAlignInverse = $dir === 'rtl' ? 'text-left' : 'text-right';
 @endphp
 
-<div class="bg-surface-container-lowest/70 backdrop-blur-[20px] rounded-xl border border-primary/10 overflow-hidden shadow-sm flex flex-col group hover:shadow-md hover:border-primary/20 transition-all duration-300">
+<div class="bg-surface-container-lowest/70 backdrop-blur-[20px] rounded-xl border {{ $group->is_pinned ? 'border-amber-400/70 ring-1 ring-amber-400/30' : 'border-primary/10' }} overflow-hidden shadow-sm flex flex-col group hover:shadow-md hover:border-primary/20 transition-all duration-300">
     
     <!-- Cover Card Image -->
     <div class="h-40 w-full relative bg-surface-container-high shrink-0">
@@ -41,6 +41,14 @@
             <span class="material-symbols-outlined text-[12px]">{{ $isOpen ? 'public' : 'lock' }}</span>
             <span>{{ $isOpen ? __t('public_group') : __t('private_group') }}</span>
         </span>
+
+        @if($group->is_pinned)
+        <!-- Pinned Badge -->
+        <span class="absolute top-3 {{ $dir === 'rtl' ? 'left-3' : 'right-3' }} flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold shadow-sm backdrop-blur-md bg-amber-500/95 text-white">
+            <span class="material-symbols-outlined text-[12px]">push_pin</span>
+            <span>{{ $dir === 'rtl' ? 'مثبتة' : 'Pinned' }}</span>
+        </span>
+        @endif
 
         <!-- Group Logo/Avatar Overlapping -->
         <div class="absolute -bottom-5 {{ $dir === 'rtl' ? 'left-5' : 'right-5' }} w-12 h-12 rounded-xl border-2 border-white shadow-md overflow-hidden bg-white z-20">

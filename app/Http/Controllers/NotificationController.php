@@ -18,7 +18,7 @@ class NotificationController extends Controller
         $usersWithToken = User::whereNotNull('token')
             ->where('token', '!=', '')
             ->orderBy('first_name', 'asc')
-            ->get();
+            ->get(['id', 'first_name', 'last_name', 'email', 'phone_number', 'profile_picture', 'token']);
 
         $totalUsersCount = User::count();
         $usersWithTokenCount = $usersWithToken->count();
@@ -32,7 +32,7 @@ class NotificationController extends Controller
 
     /**
      * معالجة وحفظ وإرسال الإشعار للمستخدمين وتخزينه في جدول notification_for_apps
-     * مع ضبط بادج الأيقونة الخارجية ليتطابق تماماً مع عدد الإشعارات غير المقروءة
+     * مع إرسال دفعي فوري وسريع (Multicast) يمنع استهلاك الذاكرة أو انقطاع الاتصال 500
      */
     public function store(Request $request, FcmNotificationService $fcmService)
     {
@@ -53,29 +53,48 @@ class NotificationController extends Controller
         ]);
 
         try {
-            // 1. تحديد المستخدمين المستهدفين لتخزين الإشعار في قاعدة البيانات لجميع المستخدمين
-            if ($request->target_type === 'all') {
-                $targetUsers = User::get(['id', 'token', 'first_name', 'last_name']);
-            } else {
-                $targetUsers = User::whereIn('id', $request->user_ids)
-                    ->get(['id', 'token', 'first_name', 'last_name']);
-            }
-
-            if ($targetUsers->isEmpty()) {
-                return redirect()->back()->with([
-                    'message'    => 'لم يتم العثور على أي مستخدمين للإرسال إليهم.',
-                    'alert-type' => 'warning'
-                ])->withInput();
-            }
-
             $title = $request->title;
             $des = $request->des;
             $link = $request->link ? trim($request->link) : null;
             $currentDate = now()->toDateString();
             $now = now();
 
-            $insertData = [];
+            // 1. تحديد المستخدمين المستهدفين المؤهلين لاستقبال الإشعار على هواتفهم
+            if ($request->target_type === 'all') {
+                $targetUsers = User::whereNotNull('token')
+                    ->where('token', '!=', '')
+                    ->get(['id', 'token', 'first_name', 'last_name']);
+            } else {
+                $targetUsers = User::whereIn('id', $request->user_ids)
+                    ->get(['id', 'token', 'first_name', 'last_name']);
+            }
 
+            if ($targetUsers->isEmpty()) {
+                if ($request->target_type === 'all') {
+                    // في حال لم يكن هناك أي مستخدم لديه توكن، يتم حفظ إشعار عام broadcast
+                    NotificationForApp::create([
+                        'user_id'    => null,
+                        'title'      => $title,
+                        'des'        => $des,
+                        'link'       => $link,
+                        'user_view'  => 'no',
+                        'date'       => $currentDate,
+                    ]);
+
+                    return redirect()->back()->with([
+                        'message'    => 'تم حفظ الإشعار العام في قاعدة البيانات بنجاح، ولكن لا يوجد حالياً مستخدمون لديهم رمز إشعار (FCM Token) فعال للإرسال السحابي.',
+                        'alert-type' => 'warning'
+                    ]);
+                }
+
+                return redirect()->back()->with([
+                    'message'    => 'لم يتم العثور على أي مستخدمين للإرسال إليهم.',
+                    'alert-type' => 'warning'
+                ])->withInput();
+            }
+
+            // 2. تخزين السجلات في جدول notification_for_apps لكل مستخدم مستهدف
+            $insertData = [];
             foreach ($targetUsers as $user) {
                 $insertData[] = [
                     'user_id'    => $user->id,
@@ -89,54 +108,63 @@ class NotificationController extends Controller
                 ];
             }
 
-            // إدراج السجلات في جدول notification_for_apps على دفعات
             foreach (array_chunk($insertData, 500) as $chunk) {
                 NotificationForApp::insert($chunk);
             }
 
-            // 2. إرسال الإشعار الفعلي عبر خدمة Firebase Cloud Messaging مع حساب البادج الدقيق لكل مستخدم
+            // 3. جمع توكنات الأجهزة وإرسال الإشعار السحابي (FCM) دفعة واحدة Multicast
+            $tokens = $targetUsers->pluck('token')
+                ->filter(function ($t) {
+                    return !empty($t) && is_string($t);
+                })
+                ->unique()
+                ->values()
+                ->toArray();
+
             $successCount = 0;
             $failureCount = 0;
 
-            foreach ($targetUsers as $user) {
-                if (!empty($user->token)) {
-                    // حساب إجمالي الإشعارات غير المقروءة الدقيقة لهذا المستخدم في النظام
-                    $unreadAdminCount = NotificationForApp::where(function($q) use ($user) {
-                        $q->where('user_id', $user->id)->orWhereNull('user_id')->orWhere('user_id', 0);
-                    })->where(function($q) {
+            if (!empty($tokens)) {
+                $extraData = [];
+                if ($link) {
+                    $extraData['link'] = $link;
+                    $extraData['url'] = $link;
+                }
+
+                // في حالة مستخدم واحد محدد، نحسب عداد البادج الدقيق له
+                if ($targetUsers->count() === 1) {
+                    $singleUser = $targetUsers->first();
+                    $unreadAdminCount = NotificationForApp::where(function ($q) use ($singleUser) {
+                        $q->where('user_id', $singleUser->id)->orWhereNull('user_id')->orWhere('user_id', 0);
+                    })->where(function ($q) {
                         $q->where('user_view', 'no')->orWhere('user_view', '0')->orWhereNull('user_view');
                     })->count();
 
                     $unreadDbCount = DB::table('notifications')
                         ->where('notifiable_type', 'App\\Models\\User')
-                        ->where('notifiable_id', $user->id)
+                        ->where('notifiable_id', $singleUser->id)
                         ->whereNull('read_at')
                         ->count();
 
-                    $userTotalUnread = $unreadAdminCount + $unreadDbCount;
-                    if ($userTotalUnread < 1) {
-                        $userTotalUnread = 1;
-                    }
-
-                    $extraData = [
-                        'badge'        => (string)$userTotalUnread,
-                        'unread_count' => (string)$userTotalUnread,
-                    ];
-                    if ($link) {
-                        $extraData['link'] = $link;
-                        $extraData['url'] = $link;
-                    }
-
-                    $fcmResult = $fcmService->sendToTokens([$user->token], $title, $des, $extraData, $userTotalUnread);
-                    $successCount += $fcmResult['success_count'];
-                    $failureCount += $fcmResult['failure_count'];
+                    $userTotalUnread = max(1, $unreadAdminCount + $unreadDbCount);
+                    $extraData['badge'] = (string)$userTotalUnread;
+                    $extraData['unread_count'] = (string)$userTotalUnread;
+                    $badgeCount = $userTotalUnread;
+                } else {
+                    $badgeCount = 1;
+                    $extraData['badge'] = '1';
+                    $extraData['unread_count'] = '1';
                 }
+
+                $fcmResult = $fcmService->sendToTokens($tokens, $title, $des, $extraData, $badgeCount);
+                $successCount = $fcmResult['success_count'] ?? 0;
+                $failureCount = $fcmResult['failure_count'] ?? 0;
             }
 
             $recordsCount = count($insertData);
-            $msg = "تم تسجيل الإشعار في قاعدة البيانات بنجاح لـ ({$recordsCount}) مستخدم ومطابقة عداد البادج بدقة.";
+            $msg = "تم تسجيل الإشعار في قاعدة البيانات بنجاح لـ ({$recordsCount}) مستخدم.";
             if ($successCount > 0) {
-                $msg .= " وتم إرسال الإشعار السحابي (FCM) بنجاح إلى ({$successCount}) جهاز مع تحديث أيقونة التطبيق.";
+                $msg .= " وتم إرسال الإشعار السحابي (FCM) بنجاح إلى ({$successCount}) جهاز فورياً.";
             }
             if ($failureCount > 0) {
                 $msg .= " (تعذر إرسال FCM إلى {$failureCount} جهاز لعدم صلاحية التوكن لديهم).";

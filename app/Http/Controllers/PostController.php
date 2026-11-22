@@ -533,9 +533,11 @@ class PostController extends Controller
             ->take(4)
             ->get();
 
-        // جلب أكثر 4 مجموعات مفتوحة انضماماً للأعضاء
+        // جلب أكثر 4 مجموعات مفتوحة انضماماً للأعضاء (مع تقديم المثبتة)
         $trendingGroups = \App\Models\GroupSite::where('status', 'open')
             ->withCount('members')
+            ->orderByDesc('is_pinned')
+            ->orderBy('pin_order', 'asc')
             ->orderBy('members_count', 'desc')
             ->take(4)
             ->get();

@@ -14,9 +14,32 @@ class GroupSite extends Model
         'image_path',
         'logo_path',
         'status',
+        'is_pinned',
+        'pin_order',
+        'pinned_at',
         'invite_code',
         'admin_user_id'
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'is_pinned' => 'boolean',
+            'pin_order' => 'integer',
+            'pinned_at' => 'datetime',
+        ];
+    }
+
+    /**
+     * ترتيب المجموعات بحيث تظهر المثبتة أولاً حسب الترتيب ثم الأحدث
+     */
+    public function scopeOrderedWithPinned($query)
+    {
+        return $query->orderByDesc('is_pinned')
+            ->orderBy('pin_order', 'asc')
+            ->orderByDesc('pinned_at')
+            ->latest();
+    }
 
     /**
      * مشرف المجموعة

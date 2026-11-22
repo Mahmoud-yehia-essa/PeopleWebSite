@@ -44,7 +44,7 @@
                 </thead>
                 <tbody>
                     @foreach($groups as $key => $item)
-                    <tr>
+                    <tr class="{{ $item->is_pinned ? 'table-warning' : '' }}">
                         <td>{{ $key+1 }}</td>
                         <td>
                             @php
@@ -57,6 +57,13 @@
                         </td>
                         <td>
                             <strong>{{ $item->title }}</strong>
+                            @if($item->is_pinned)
+                                <div class="mt-1">
+                                    <span class="badge bg-warning text-dark" style="font-size: 11px;">
+                                        <i class="fa-solid fa-thumbtack me-1"></i> مثبتة (ترتيب: {{ $item->pin_order ?? 0 }})
+                                    </span>
+                                </div>
+                            @endif
                             @if($item->description)
                                 <div class="text-muted small text-truncate" style="max-width: 180px;" title="{{ $item->description }}">
                                     {{ $item->description }}
@@ -99,12 +106,22 @@
                         </td>
                         <td>{{ $item->created_at ? $item->created_at->format('Y-m-d H:i') : 'غير محدد' }}</td>
                         <td>
-                            <a href="{{ route('edit.group_site', $item->id) }}" class="btn btn-sm btn-info text-white" title="تعديل بيانات المجموعة"> 
-                                <i class="fa fa-pencil"></i> 
-                            </a>
-                            <a href="{{ route('delete.group_site', $item->id) }}" class="btn btn-sm btn-danger" id="delete" title="حذف المجموعة بالكامل">
-                                <i class="fa fa-trash"></i>
-                            </a>
+                            <div class="d-flex align-items-center gap-1 flex-wrap">
+                                @if($item->is_pinned)
+                                    <button type="button" class="btn btn-sm btn-warning text-white" onclick="unpinGroupSite({{ $item->id }}, '{{ e($item->title) }}')" title="إلغاء تثبيت المجموعة">
+                                        <i class="fa-solid fa-ban"></i>
+                                    </button>
+                                @endif
+                                <button type="button" class="btn btn-sm {{ $item->is_pinned ? 'btn-secondary' : 'btn-outline-warning' }}" onclick="pinGroupSite({{ $item->id }}, '{{ e($item->title) }}', {{ (int)($item->pin_order ?? 0) }})" title="{{ $item->is_pinned ? 'تعديل ترتيب التثبيت' : 'تثبيت المجموعة' }}">
+                                    <i class="fa-solid fa-thumbtack"></i>
+                                </button>
+                                <a href="{{ route('edit.group_site', $item->id) }}" class="btn btn-sm btn-info text-white" title="تعديل بيانات المجموعة"> 
+                                    <i class="fa fa-pencil"></i> 
+                                </a>
+                                <a href="{{ route('delete.group_site', $item->id) }}" class="btn btn-sm btn-danger" id="delete" title="حذف المجموعة بالكامل">
+                                    <i class="fa fa-trash"></i>
+                                </a>
+                            </div>
                         </td>
                     </tr>
                     @endforeach
@@ -413,9 +430,22 @@
                             let safeDesc = subject.description ? escapeHtml(subject.description).replace(/\n/g, '<br>') : '<span class="text-muted italic">لا يوجد محتوى</span>';
                             let safeAuthorName = escapeHtml(subject.author_name);
                             let safeAuthorPic = escapeHtml(subject.author_picture);
+                            let pinnedBadge = subject.is_pinned
+                                ? `<div class="mt-1"><span class="badge bg-warning text-dark" style="font-size: 10px;"><i class="fa-solid fa-thumbtack me-1"></i> مثبت (ترتيب: ${subject.pin_order ?? 0})</span></div>`
+                                : '';
+                            let pinButtons = subject.is_pinned
+                                ? `<button class="btn btn-sm btn-warning text-white py-1 px-2" onclick="unpinSubject(${subject.id})" title="إلغاء تثبيت الموضوع">
+                                        <i class="fa-solid fa-ban"></i>
+                                   </button>
+                                   <button class="btn btn-sm btn-secondary py-1 px-2" onclick="openPinSubject(${subject.id})" title="تعديل ترتيب التثبيت">
+                                        <i class="fa-solid fa-thumbtack"></i>
+                                   </button>`
+                                : `<button class="btn btn-sm btn-outline-warning py-1 px-2" onclick="openPinSubject(${subject.id})" title="تثبيت الموضوع في المجموعة">
+                                        <i class="fa-solid fa-thumbtack"></i> تثبيت
+                                   </button>`;
 
                             htmlArray.push(`
-                                <tr>
+                                <tr style="${subject.is_pinned ? 'background-color: #fffbeb;' : ''}">
                                     <td>
                                         <div class="d-flex align-items-center">
                                             <img src="${safeAuthorPic}" class="rounded-circle me-2" style="width: 32px; height: 32px; object-fit: cover; border: 1px solid #eee;">
@@ -425,7 +455,10 @@
                                             </div>
                                         </div>
                                     </td>
-                                    <td><strong class="text-dark">${safeTitle}</strong></td>
+                                    <td>
+                                        <strong class="text-dark">${safeTitle}</strong>
+                                        ${pinnedBadge}
+                                    </td>
                                     <td>
                                         <div class="text-wrap text-muted small" style="max-width: 250px; max-height: 70px; overflow-y: auto;">
                                             ${safeDesc}
@@ -441,7 +474,8 @@
                                         </span>
                                     </td>
                                     <td class="text-center">
-                                        <div class="d-flex justify-content-center gap-1">
+                                        <div class="d-flex justify-content-center gap-1 flex-wrap">
+                                            ${pinButtons}
                                             <button class="btn btn-sm btn-outline-success py-1 px-2" onclick="openSubjectComments(${subject.id})" title="عرض تعليقات الموضوع">
                                                 <i class="bx bx-message-rounded-dots"></i> التعليقات
                                             </button>
@@ -484,6 +518,176 @@
         const subject = cachedSubjects[subjectId];
         const title = subject ? subject.title : '';
         deleteSubject(subjectId, title);
+    }
+
+    // ==============================================
+    // تثبيت وإلغاء تثبيت المجموعة (Pin / Unpin Group)
+    // ==============================================
+    function pinGroupSite(groupId, groupTitle, currentOrder = 0) {
+        Swal.fire({
+            title: `تثبيت المجموعة: ${groupTitle}`,
+            text: "أدخل ترتيب التثبيت (0 = يظهر في أعلى القائمة أولاً):",
+            input: 'number',
+            inputValue: currentOrder,
+            inputAttributes: { min: 0, step: 1 },
+            showCancelButton: true,
+            confirmButtonColor: "#0f7a4d",
+            cancelButtonColor: "#6c757d",
+            confirmButtonText: "حفظ التثبيت",
+            cancelButtonText: "إلغاء",
+            inputValidator: (value) => {
+                if (value === '' || Number(value) < 0) {
+                    return 'يرجى إدخال رقم ترتيب صحيح (0 أو أكبر)';
+                }
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                fetch('/admin/group-sites/pin', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                    },
+                    body: JSON.stringify({
+                        group_id: groupId,
+                        pin_order: parseInt(result.value, 10) || 0
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        Swal.fire("تم التثبيت!", data.message, "success").then(() => location.reload());
+                    } else {
+                        Swal.fire("خطأ!", data.message || "تعذر تثبيت المجموعة", "error");
+                    }
+                })
+                .catch(() => Swal.fire("خطأ!", "حدث خطأ في الاتصال بالخادم.", "error"));
+            }
+        });
+    }
+
+    function unpinGroupSite(groupId, groupTitle) {
+        Swal.fire({
+            title: `إلغاء تثبيت: ${groupTitle}؟`,
+            text: "ستعود المجموعة للظهور حسب الترتيب الزمني العادي.",
+            icon: "question",
+            showCancelButton: true,
+            confirmButtonColor: "#f59e0b",
+            cancelButtonColor: "#6c757d",
+            confirmButtonText: "نعم، إلغاء التثبيت",
+            cancelButtonText: "إلغاء"
+        }).then((result) => {
+            if (result.isConfirmed) {
+                fetch('/admin/group-sites/unpin', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                    },
+                    body: JSON.stringify({ group_id: groupId })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        Swal.fire("تم!", data.message, "success").then(() => location.reload());
+                    } else {
+                        Swal.fire("خطأ!", data.message || "تعذر إلغاء التثبيت", "error");
+                    }
+                })
+                .catch(() => Swal.fire("خطأ!", "حدث خطأ في الاتصال بالخادم.", "error"));
+            }
+        });
+    }
+
+    // ==============================================
+    // تثبيت وإلغاء تثبيت الموضوع داخل المجموعة
+    // ==============================================
+    function openPinSubject(subjectId) {
+        const subject = cachedSubjects[subjectId];
+        const title = subject ? subject.title : 'الموضوع';
+        const currentOrder = subject && subject.pin_order !== undefined ? subject.pin_order : 0;
+
+        Swal.fire({
+            title: `تثبيت الموضوع: ${title}`,
+            text: "أدخل ترتيب التثبيت داخل المجموعة (0 = يظهر في الأعلى):",
+            input: 'number',
+            inputValue: currentOrder,
+            inputAttributes: { min: 0, step: 1 },
+            showCancelButton: true,
+            confirmButtonColor: "#0f7a4d",
+            cancelButtonColor: "#6c757d",
+            confirmButtonText: "تثبيت الموضوع",
+            cancelButtonText: "إلغاء",
+            inputValidator: (value) => {
+                if (value === '' || Number(value) < 0) {
+                    return 'يرجى إدخال رقم ترتيب صحيح (0 أو أكبر)';
+                }
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                fetch('/admin/group-sites/subjects/pin', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                    },
+                    body: JSON.stringify({
+                        subject_id: subjectId,
+                        pin_order: parseInt(result.value, 10) || 0
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        Swal.fire("تم التثبيت!", data.message, "success");
+                        if (currentActiveGroupForSubjects) {
+                            loadSubjects(currentActiveGroupForSubjects);
+                        }
+                    } else {
+                        Swal.fire("خطأ!", data.message || "تعذر تثبيت الموضوع", "error");
+                    }
+                })
+                .catch(() => Swal.fire("خطأ!", "حدث خطأ في الاتصال بالخادم.", "error"));
+            }
+        });
+    }
+
+    function unpinSubject(subjectId) {
+        const subject = cachedSubjects[subjectId];
+        const title = subject ? subject.title : 'الموضوع';
+
+        Swal.fire({
+            title: `إلغاء تثبيت موضوع: ${title}؟`,
+            icon: "question",
+            showCancelButton: true,
+            confirmButtonColor: "#f59e0b",
+            cancelButtonColor: "#6c757d",
+            confirmButtonText: "نعم، إلغاء التثبيت",
+            cancelButtonText: "إلغاء"
+        }).then((result) => {
+            if (result.isConfirmed) {
+                fetch('/admin/group-sites/subjects/unpin', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                    },
+                    body: JSON.stringify({ subject_id: subjectId })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        Swal.fire("تم!", data.message, "success");
+                        if (currentActiveGroupForSubjects) {
+                            loadSubjects(currentActiveGroupForSubjects);
+                        }
+                    } else {
+                        Swal.fire("خطأ!", data.message || "تعذر إلغاء التثبيت", "error");
+                    }
+                })
+                .catch(() => Swal.fire("خطأ!", "حدث خطأ في الاتصال بالخادم.", "error"));
+            }
+        });
     }
 
     function deleteSubject(subjectId, subjectTitle) {

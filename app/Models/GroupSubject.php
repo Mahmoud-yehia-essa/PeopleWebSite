@@ -90,8 +90,31 @@ class GroupSubject extends Model
         'likes',
         'dislikes',
         'attachment_type',
-        'attachment_path'
+        'attachment_path',
+        'is_pinned',
+        'pin_order',
+        'pinned_at'
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'is_pinned' => 'boolean',
+            'pin_order' => 'integer',
+            'pinned_at' => 'datetime',
+        ];
+    }
+
+    /**
+     * ترتيب المواضيع بحيث تظهر المثبتة أولاً حسب الترتيب ثم الأحدث
+     */
+    public function scopeOrderedWithPinned($query)
+    {
+        return $query->orderByDesc('is_pinned')
+            ->orderBy('pin_order', 'asc')
+            ->orderByDesc('pinned_at')
+            ->latest();
+    }
 
     /**
      * كاتب الموضوع

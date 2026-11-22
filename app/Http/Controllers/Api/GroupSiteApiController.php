@@ -65,7 +65,7 @@ class GroupSiteApiController extends Controller
             // available_groups (الكل)
         }
 
-        $groups = $query->latest()
+        $groups = $query->orderedWithPinned()
                         ->skip($offset)
                         ->take($limit)
                         ->get();
@@ -115,6 +115,8 @@ class GroupSiteApiController extends Controller
                 'subjects_count' => (int)($g->subjects_count ?? 0),
                 'is_joined'      => $isJoined ? 1 : 0,
                 'is_admin'       => ($currentUserId > 0 && $g->admin_user_id == $currentUserId) ? 1 : 0,
+                'is_pinned'      => $g->is_pinned ? 1 : 0,
+                'pin_order'      => (int)($g->pin_order ?? 0),
                 'created_at'     => $g->created_at ? $g->created_at->diffForHumans() : '',
             ];
         });
@@ -437,7 +439,7 @@ class GroupSiteApiController extends Controller
         $subjects = GroupSubject::with(['user'])
             ->withCount(['comments', 'reactions'])
             ->where('group_site_id', $group->id)
-            ->latest()
+            ->orderedWithPinned()
             ->skip($offset)
             ->take($limit)
             ->get()
@@ -475,6 +477,8 @@ class GroupSiteApiController extends Controller
                             ->where('type', 'like')
                             ->exists() ? 1 : 0
                         : 0,
+                    'is_pinned'       => $s->is_pinned ? 1 : 0,
+                    'pin_order'       => (int)($s->pin_order ?? 0),
                     'created_at'      => $s->created_at ? $s->created_at->diffForHumans() : '',
                 ];
             });
@@ -496,6 +500,8 @@ class GroupSiteApiController extends Controller
                 'subjects_count' => (int)$group->subjects_count,
                 'is_joined'      => $isJoined ? 1 : 0,
                 'is_admin'       => ($currentUserId > 0 && $group->admin_user_id == $currentUserId) ? 1 : 0,
+                'is_pinned'      => $group->is_pinned ? 1 : 0,
+                'pin_order'      => (int)($group->pin_order ?? 0),
             ],
             'subjects' => $subjects,
         ]);

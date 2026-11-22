@@ -77,6 +77,12 @@
                         @else
                             <h2 class="font-headline-lg text-xl md:text-2xl font-bold mb-1" style="color: #ffffff !important; text-shadow: 0 2px 8px rgba(0, 0, 0, 0.85);">{{ $group->title }}</h2>
                         @endif
+                        @if($group->is_pinned)
+                            <span class="inline-flex items-center gap-1 mt-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/90 text-white shadow-sm">
+                                <span class="material-symbols-outlined text-[13px]">push_pin</span>
+                                <span>{{ $dir === 'rtl' ? 'مجموعة مثبتة' : 'Pinned Group' }}</span>
+                            </span>
+                        @endif
                     </div>
                 </div>
                 

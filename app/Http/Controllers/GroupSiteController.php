@@ -20,13 +20,61 @@ class GroupSiteController extends Controller
      */
     public function allGroupSites()
     {
-        // جلب جميع المجموعات مع المشرف وعدد الأعضاء والمواضيع
+        // جلب جميع المجموعات مع المشرف وعدد الأعضاء والمواضيع (المثبتة أولاً)
         $groups = GroupSite::with(['admin'])
             ->withCount(['members', 'subjects'])
-            ->latest()
+            ->orderedWithPinned()
             ->get();
 
         return view('admin.group_sites.all_group_sites', compact('groups'));
+    }
+
+    /**
+     * تثبيت مجموعة أو تحديث ترتيب تثبيتها من لوحة التحكم
+     */
+    public function pinGroupSite(Request $request)
+    {
+        $request->validate([
+            'group_id'  => 'required|integer|exists:group_sites,id',
+            'pin_order' => 'nullable|integer|min:0',
+        ]);
+
+        $group = GroupSite::findOrFail($request->group_id);
+        $group->is_pinned = true;
+        $group->pin_order = (int)$request->input('pin_order', 0);
+        $group->pinned_at = now();
+        $group->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'تم تثبيت المجموعة بنجاح.',
+            'group'   => [
+                'id'        => (int)$group->id,
+                'is_pinned' => true,
+                'pin_order' => (int)$group->pin_order,
+            ],
+        ]);
+    }
+
+    /**
+     * إلغاء تثبيت مجموعة من لوحة التحكم
+     */
+    public function unpinGroupSite(Request $request)
+    {
+        $request->validate([
+            'group_id' => 'required|integer|exists:group_sites,id',
+        ]);
+
+        $group = GroupSite::findOrFail($request->group_id);
+        $group->is_pinned = false;
+        $group->pin_order = 0;
+        $group->pinned_at = null;
+        $group->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'تم إلغاء تثبيت المجموعة بنجاح.',
+        ]);
     }
 
     /**
@@ -308,7 +356,7 @@ class GroupSiteController extends Controller
     {
         $subjects = GroupSubject::with(['user'])
             ->where('group_site_id', $id)
-            ->latest()
+            ->orderedWithPinned()
             ->get();
 
         $mappedSubjects = $subjects->map(function($subject) {
@@ -331,6 +379,9 @@ class GroupSiteController extends Controller
                 'dislikes' => $subject->dislikes,
                 'attachment_type' => $subject->attachment_type,
                 'attachment_path' => $attachmentUrl,
+                'is_pinned' => (bool)$subject->is_pinned,
+                'pin_order' => (int)($subject->pin_order ?? 0),
+                'pinned_at' => $subject->pinned_at ? $subject->pinned_at->format('Y-m-d H:i') : null,
                 'created_at' => $subject->created_at ? $subject->created_at->format('Y-m-d H:i') : ''
             ];
         });
@@ -338,6 +389,49 @@ class GroupSiteController extends Controller
         return response()->json([
             'success' => true,
             'subjects' => $mappedSubjects
+        ]);
+    }
+
+    /**
+     * تثبيت موضوع داخل المجموعة من لوحة التحكم
+     */
+    public function pinGroupSubject(Request $request)
+    {
+        $request->validate([
+            'subject_id' => 'required|integer|exists:group_subjects,id',
+            'pin_order'  => 'nullable|integer|min:0',
+        ]);
+
+        $subject = GroupSubject::findOrFail($request->subject_id);
+        $subject->is_pinned = true;
+        $subject->pin_order = (int)$request->input('pin_order', 0);
+        $subject->pinned_at = now();
+        $subject->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'تم تثبيت الموضوع داخل المجموعة بنجاح.',
+        ]);
+    }
+
+    /**
+     * إلغاء تثبيت موضوع داخل المجموعة من لوحة التحكم
+     */
+    public function unpinGroupSubject(Request $request)
+    {
+        $request->validate([
+            'subject_id' => 'required|integer|exists:group_subjects,id',
+        ]);
+
+        $subject = GroupSubject::findOrFail($request->subject_id);
+        $subject->is_pinned = false;
+        $subject->pin_order = 0;
+        $subject->pinned_at = null;
+        $subject->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'تم إلغاء تثبيت الموضوع بنجاح.',
         ]);
     }
 
@@ -533,7 +627,7 @@ class GroupSiteController extends Controller
             $groupsQuery = GroupSite::with(['admin'])
                 ->withCount(['members', 'subjects'])
                 ->where('status', '!=', 'archived')
-                ->latest();
+                ->orderedWithPinned();
 
             if ($type === 'my-groups' && $userId) {
                 $groups = $groupsQuery->where('admin_user_id', $userId)->paginate($perPage);
@@ -563,7 +657,7 @@ class GroupSiteController extends Controller
         $groups = GroupSite::with(['admin'])
             ->withCount(['members', 'subjects'])
             ->where('status', '!=', 'archived')
-            ->latest()
+            ->orderedWithPinned()
             ->paginate($perPage, ['*'], 'page', 1);
 
         // My Groups (Majmou'ati)
@@ -572,7 +666,7 @@ class GroupSiteController extends Controller
                 ->withCount(['members', 'subjects'])
                 ->where('admin_user_id', $userId)
                 ->where('status', '!=', 'archived')
-                ->latest()
+                ->orderedWithPinned()
                 ->paginate($perPage, ['*'], 'page', 1)
             : GroupSite::whereNull('id')->paginate($perPage, ['*'], 'page', 1);
 
@@ -583,7 +677,7 @@ class GroupSiteController extends Controller
                 ->whereHas('members', fn($q) => $q->where('user_id', $userId))
                 ->where('admin_user_id', '!=', $userId)
                 ->where('status', '!=', 'archived')
-                ->latest()
+                ->orderedWithPinned()
                 ->paginate($perPage, ['*'], 'page', 1)
             : GroupSite::whereNull('id')->paginate($perPage, ['*'], 'page', 1);
 
@@ -618,10 +712,10 @@ class GroupSiteController extends Controller
             ->withCount(['members', 'subjects'])
             ->findOrFail($id);
 
-        // جلب مواضيع المجموعة مع الكاتب والتعليقات والتفاعلات مرتبة تنازلياً (أول 5 مواضيع)
+        // جلب مواضيع المجموعة مع الكاتب والتعليقات والتفاعلات (المثبتة أولاً ثم الأحدث)
         $subjects = GroupSubject::with(['user', 'comments.user', 'reactions'])
             ->where('group_site_id', $id)
-            ->latest()
+            ->orderedWithPinned()
             ->paginate(5);
 
         // التحقق من حالة انضمام المستخدم للمجموعة
@@ -1349,7 +1443,7 @@ class GroupSiteController extends Controller
         $perPage = $request->input('per_page', 5);
         $subjects = GroupSubject::with(['user', 'comments.user', 'reactions'])
             ->where('group_site_id', $id)
-            ->latest()
+            ->orderedWithPinned()
             ->paginate($perPage);
 
         $html = '';

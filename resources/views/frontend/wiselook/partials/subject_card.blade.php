@@ -37,7 +37,13 @@
     }
 @endphp
 
-<article class="wisdom-card overflow-hidden bg-white rounded-2xl border border-[#E1E8E1] shadow-sm mb-6" data-subject-id="{{ $subject->id }}" style="direction: {{ $dir }};">
+<article class="wisdom-card overflow-hidden bg-white rounded-2xl border {{ $subject->is_pinned ? 'border-amber-300/90 ring-1 ring-amber-300/30' : 'border-[#E1E8E1]' }} shadow-sm mb-6" data-subject-id="{{ $subject->id }}" style="direction: {{ $dir }};">
+    @if($subject->is_pinned)
+        <div class="bg-amber-50/90 border-b border-amber-200/70 px-6 py-2 flex items-center gap-1.5 text-amber-800 text-xs font-bold">
+            <span class="material-symbols-outlined text-[15px] text-amber-600">push_pin</span>
+            <span>{{ $dir === 'rtl' ? 'موضوع مثبت' : 'Pinned Topic' }}</span>
+        </div>
+    @endif
     <div class="p-6">
         <div class="flex justify-between items-start mb-4">
             <div class="flex gap-3 {{ $textAlign }}">
