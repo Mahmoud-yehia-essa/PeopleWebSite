@@ -704,7 +704,7 @@ class GroupSiteController extends Controller
     /**
      * عرض تفاصيل مجموعة محددة في الواجهة الأمامية
      */
-    public function showFrontendGroupDetails($id)
+    public function showFrontendGroupDetails(Request $request, $id)
     {
         $group = GroupSite::with(['admin', 'members' => function ($q) {
             $q->latest()->take(5);
@@ -718,6 +718,14 @@ class GroupSiteController extends Controller
             ->orderedWithPinned()
             ->paginate(5);
 
+        $highlightedSubjectId = $request->query('subject') ? (int)$request->query('subject') : null;
+        $highlightedSubject = null;
+        if ($highlightedSubjectId) {
+            $highlightedSubject = GroupSubject::with(['user', 'comments.user', 'reactions'])
+                ->where('group_site_id', $id)
+                ->find($highlightedSubjectId);
+        }
+
         // التحقق من حالة انضمام المستخدم للمجموعة
         $isMember = false;
         if (auth()->check()) {
@@ -726,7 +734,7 @@ class GroupSiteController extends Controller
                 ->exists();
         }
 
-        return view('frontend.wiselook.pages.group_details', compact('group', 'subjects', 'isMember'));
+        return view('frontend.wiselook.pages.group_details', compact('group', 'subjects', 'isMember', 'highlightedSubject'));
     }
 
     /**

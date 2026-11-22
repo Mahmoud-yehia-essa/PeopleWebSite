@@ -9,6 +9,7 @@
         @vite(['resources/js/app.js'])
     @endauth
     <title>حكماء العالم | @yield('title', 'الرئيسية')</title>
+    @stack('meta')
     
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
@@ -206,8 +207,8 @@
                     <span class="material-symbols-outlined text-[24px]">share</span>
                 </div>
                 <div>
-                    <h3 class="font-headline-lg text-base font-extrabold text-primary leading-tight">مشاركة الحكمة والموضوع</h3>
-                    <p class="font-body-md text-[11px] text-on-surface-variant/80 mt-0.5">انشر المعرفة عبر شبكات التواصل الاجتماعي بنقرة واحدة</p>
+                    <h3 id="share-modal-title" class="font-headline-lg text-base font-extrabold text-primary leading-tight">مشاركة الحكمة والموضوع</h3>
+                    <p id="share-modal-subtitle" class="font-body-md text-[11px] text-on-surface-variant/80 mt-0.5">انشر المعرفة عبر شبكات التواصل الاجتماعي بنقرة واحدة</p>
                 </div>
             </div>
             
@@ -250,6 +251,22 @@
                         <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M22.23 0H1.77C.8 0 0 .77 0 1.72v20.56C0 23.23.8 24 1.77 24h20.46c.98 0 1.77-.77 1.77-1.72V1.72C24 .77 23.2 0 22.23 0zM7.12 20.45H3.56V9H7.12v11.45zM5.34 7.43c-1.14 0-2.06-.92-2.06-2.06 0-1.14.92-2.06 2.06-2.06 1.14 0 2.06.92 2.06 2.06 0 1.14-.92 2.06-2.06 2.06zm15.11 13.02h-3.56v-5.6c0-1.34-.03-3.05-1.86-3.05-1.86 0-2.14 1.45-2.14 2.95v5.7H9.33V9h3.42v1.56h.05c.48-.9 1.64-1.86 3.39-1.86 3.63 0 4.3 2.39 4.3 5.5v6.25z"/></svg>
                     </div>
                 </a>
+
+                <!-- Telegram -->
+                <a id="share-telegram" href="#" target="_blank" class="flex items-center justify-between p-3.5 rounded-2xl bg-gradient-to-r from-sky-500/5 to-sky-500/10 border border-sky-500/20 hover:border-sky-500 text-sky-600 group cursor-pointer transition-all duration-300 hover:shadow-[0_8px_20px_-6px_rgba(14,165,233,0.3)] hover:-translate-y-0.5">
+                    <span class="font-label-sm text-xs font-extrabold pr-1">تيليجرام (Telegram)</span>
+                    <div class="w-9 h-9 rounded-xl bg-sky-500 text-white flex items-center justify-center shadow-lg shadow-sky-500/20 group-hover:scale-110 transition-transform">
+                        <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>
+                    </div>
+                </a>
+
+                <!-- Native / More -->
+                <button type="button" id="share-native-btn" class="flex items-center justify-between p-3.5 rounded-2xl bg-gradient-to-r from-amber-500/5 to-amber-500/10 border border-amber-500/20 hover:border-amber-500 text-amber-700 group cursor-pointer transition-all duration-300 hover:shadow-[0_8px_20px_-6px_rgba(245,158,11,0.3)] hover:-translate-y-0.5 text-right">
+                    <span class="font-label-sm text-xs font-extrabold pr-1">مشاركة أسرع / المزيد</span>
+                    <div class="w-9 h-9 rounded-xl bg-amber-500 text-white flex items-center justify-center shadow-lg shadow-amber-500/20 group-hover:scale-110 transition-transform">
+                        <span class="material-symbols-outlined text-[20px]">ios_share</span>
+                    </div>
+                </button>
             </div>
             
             <!-- Copy Link Field -->
@@ -513,7 +530,51 @@
                 });
             });
 
-            // Open Share Post Modal or trigger Native Share
+            let currentSharePayload = { title: 'حكماء العالم', text: '', url: '' };
+
+            window.openSocialShareModal = function(opts) {
+                const shareUrl = opts.shareUrl || window.location.href;
+                const fullShareText = opts.fullShareText || shareUrl;
+                const facebookQuote = opts.facebookQuote || '';
+
+                currentSharePayload = {
+                    title: opts.modalTitle || 'حكماء العالم',
+                    text: opts.nativeText || fullShareText,
+                    url: shareUrl
+                };
+
+                $('#share-modal-title').text(opts.modalTitle || 'مشاركة الحكمة والموضوع');
+                $('#share-modal-subtitle').text(opts.modalSubtitle || 'انشر المعرفة عبر شبكات التواصل الاجتماعي بنقرة واحدة');
+                $('#share-link-input').val(shareUrl);
+                $('#share-modal-preview-text').text(opts.previewText || '');
+
+                $('#share-whatsapp').attr('href', `https://api.whatsapp.com/send?text=${encodeURIComponent(fullShareText)}`);
+                $('#share-facebook').attr('href', `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}${facebookQuote ? `&quote=${encodeURIComponent(facebookQuote)}` : ''}`);
+                $('#share-twitter').attr('href', `https://twitter.com/intent/tweet?text=${encodeURIComponent(fullShareText)}`);
+                $('#share-linkedin').attr('href', `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`);
+                $('#share-telegram').attr('href', `https://t.me/share/url?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(opts.telegramText || fullShareText)}`);
+
+                const modal = $('#share-post-modal');
+                modal.removeClass('hidden').addClass('flex');
+                $('body').addClass('modal-active');
+                setTimeout(() => {
+                    modal.addClass('modal-show');
+                }, 20);
+            };
+
+            $(document).on('click', '#share-native-btn', function() {
+                if (navigator.share) {
+                    navigator.share({
+                        title: currentSharePayload.title,
+                        text: currentSharePayload.text,
+                        url: currentSharePayload.url
+                    }).catch(() => {});
+                } else {
+                    $('#copy-share-link-btn').trigger('click');
+                }
+            });
+
+            // Open Share Post Modal
             $(document).on('click', '.share-post-btn', function(e) {
                 e.preventDefault();
                 const btn = $(this);
@@ -522,27 +583,75 @@
                 const postContent = decodeURIComponent(rawContentAttr.replace(/\+/g, '%20'));
                 const shareUrl = window.location.origin + '/post/' + postId;
                 const snippet = postContent ? (postContent.substring(0, 100) + (postContent.length > 100 ? '...' : '')) : '';
-                
                 const textHeader = snippet ? `اقرأ هذا الموضوع الشيق على حكماء العالم:\n"${snippet}"` : 'اقرأ هذا الموضوع الشيق على حكماء العالم';
                 const fullShareText = `${textHeader}\n${shareUrl}`;
 
-                // Open custom premium share modal (bypassing native navigator.share to prevent browser permission popups)
-                $('#share-link-input').val(shareUrl);
-                $('#share-modal-preview-text').text(postContent ? postContent.substring(0, 150) + (postContent.length > 150 ? '...' : '') : 'موضوع مميز على حكماء العالم...');
-                
-                // Set href links for social share buttons
-                $('#share-whatsapp').attr('href', `https://api.whatsapp.com/send?text=${encodeURIComponent(fullShareText)}`);
-                $('#share-facebook').attr('href', `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`);
-                $('#share-twitter').attr('href', `https://twitter.com/intent/tweet?text=${encodeURIComponent(fullShareText)}`);
-                $('#share-linkedin').attr('href', `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`);
+                window.openSocialShareModal({
+                    modalTitle: 'مشاركة الحكمة والموضوع',
+                    modalSubtitle: 'انشر المعرفة عبر شبكات التواصل الاجتماعي بنقرة واحدة',
+                    previewText: postContent ? postContent.substring(0, 150) + (postContent.length > 150 ? '...' : '') : 'موضوع مميز على حكماء العالم...',
+                    shareUrl: shareUrl,
+                    fullShareText: fullShareText,
+                    telegramText: textHeader,
+                    facebookQuote: textHeader
+                });
+            });
 
-                // Show Modal
-                const modal = $('#share-post-modal');
-                modal.removeClass('hidden').addClass('flex');
-                $('body').addClass('modal-active');
-                setTimeout(() => {
-                    modal.addClass('modal-show');
-                }, 20);
+            // Open Share Group Card Modal (from /groups directory)
+            $(document).on('click', '.share-group-card-btn', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                const btn = $(this);
+                const groupId = btn.attr('data-group-id');
+                const groupTitle = btn.attr('data-group-title') || 'مجموعة متميزة';
+                const rawDesc = btn.attr('data-group-desc') || '';
+                const groupDesc = rawDesc ? decodeURIComponent(rawDesc.replace(/\+/g, '%20')) : '';
+                const shareUrl = window.location.origin + '/groups/' + groupId;
+                const snippet = groupDesc ? (groupDesc.substring(0, 110) + (groupDesc.length > 110 ? '...' : '')) : '';
+
+                const inviteText = snippet
+                    ? `🌟 أدعوك للانضمام إلى مجموعة "${groupTitle}" على منصة حكماء العالم!\n${snippet}\n\nانضم إلينا الآن وشارك في النقاشات:`
+                    : `🌟 أدعوك للانضمام إلى مجموعة "${groupTitle}" على منصة حكماء العالم والمشاركة في نقاشاتها الثرية!`;
+                const fullShareText = `${inviteText}\n${shareUrl}`;
+
+                window.openSocialShareModal({
+                    modalTitle: 'مشاركة المجموعة ودعوة الأصدقاء',
+                    modalSubtitle: 'شارك رابط المجموعة عبر منصات التواصل لتشجيع أصدقائك على الانضمام',
+                    previewText: snippet || `مجموعة "${groupTitle}" — انضم وشارك في النقاشات على حكماء العالم`,
+                    shareUrl: shareUrl,
+                    fullShareText: fullShareText,
+                    telegramText: inviteText,
+                    facebookQuote: inviteText
+                });
+            });
+
+            // Open Share Group Subject Modal (from /groups/{id} subject cards)
+            $(document).on('click', '.share-subject-btn', function(e) {
+                e.preventDefault();
+                const btn = $(this);
+                const subjectId = btn.attr('data-subject-id');
+                const groupId = btn.attr('data-group-id');
+                const groupTitle = btn.attr('data-group-title') || 'مجموعات حكماء العالم';
+                const subjectTitle = btn.attr('data-subject-title') || 'موضوع نقاشي';
+                const rawDesc = btn.attr('data-subject-desc') || '';
+                const subjectDesc = rawDesc ? decodeURIComponent(rawDesc.replace(/\+/g, '%20')) : '';
+                const shareUrl = window.location.origin + '/groups/' + groupId + '?subject=' + subjectId;
+                const snippet = subjectDesc ? (subjectDesc.substring(0, 100) + (subjectDesc.length > 100 ? '...' : '')) : '';
+
+                const inviteText = snippet
+                    ? `📢 من مجموعة "${groupTitle}" على حكماء العالم:\n"${subjectTitle}"\n\n${snippet}\n\nشاركنا الرأي وانضم إلى المجموعة الآن:`
+                    : `📢 من مجموعة "${groupTitle}" على حكماء العالم:\n"${subjectTitle}"\n\nشاركنا الرأي وانضم إلى المجموعة الآن:`;
+                const fullShareText = `${inviteText}\n${shareUrl}`;
+
+                window.openSocialShareModal({
+                    modalTitle: 'مشاركة موضوع المجموعة',
+                    modalSubtitle: 'شارك الموضوع مع أصدقائك وشجّعهم على الانضمام للمجموعة',
+                    previewText: `${subjectTitle}${snippet ? ' — ' + snippet : ''}`,
+                    shareUrl: shareUrl,
+                    fullShareText: fullShareText,
+                    telegramText: inviteText,
+                    facebookQuote: inviteText
+                });
             });
 
             // Close Share Modal Events
@@ -562,8 +671,17 @@
             // Copy Link Button handler
             $(document).on('click', '#copy-share-link-btn', function() {
                 const linkInput = $('#share-link-input');
-                linkInput.select();
-                document.execCommand('copy');
+                const valueToCopy = linkInput.val();
+
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(valueToCopy).catch(() => {
+                        linkInput.select();
+                        document.execCommand('copy');
+                    });
+                } else {
+                    linkInput.select();
+                    document.execCommand('copy');
+                }
 
                 // Visual feedback on button
                 const btn = $(this);
@@ -571,7 +689,7 @@
                 btn.text('تم النسخ!').addClass('bg-secondary').removeClass('bg-primary');
                 
                 if (typeof toastr !== "undefined") {
-                    toastr.success('تم نسخ رابط الموضوع إلى الحافظة بنجاح.');
+                    toastr.success('تم نسخ رابط المشاركة إلى الحافظة بنجاح.');
                 }
 
                 setTimeout(() => {

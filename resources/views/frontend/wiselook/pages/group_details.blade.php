@@ -23,6 +23,38 @@
     $textAlignInverse = $dir === 'rtl' ? 'text-left' : 'text-right';
 @endphp
 
+@section('title', $group->title)
+
+@push('meta')
+@php
+    $shareOgTitle = $group->title . ' | حكماء العالم';
+    $shareOgDesc = \Illuminate\Support\Str::limit(strip_tags($group->description ?? ''), 150) ?: 'انضم إلى المجموعة وشارك في النقاشات على منصة حكماء العالم';
+    $shareOgImage = $imageUrl;
+    $shareOgUrl = route('frontend.groups.details', $group->id);
+
+    if (isset($highlightedSubject) && $highlightedSubject && $group->status === 'open') {
+        $shareOgTitle = $highlightedSubject->title . ' - ' . $group->title . ' | حكماء العالم';
+        $shareOgDesc = \Illuminate\Support\Str::limit(strip_tags($highlightedSubject->description ?? ''), 150) ?: $shareOgDesc;
+        $shareOgUrl = route('frontend.groups.details', $group->id) . '?subject=' . $highlightedSubject->id;
+        if ($highlightedSubject->attachment_path && $highlightedSubject->attachment_type === 'image') {
+            $shareOgImage = filter_var($highlightedSubject->attachment_path, FILTER_VALIDATE_URL)
+                ? $highlightedSubject->attachment_path
+                : asset('upload/group_subjects/' . $highlightedSubject->attachment_path);
+        }
+    }
+@endphp
+<meta property="og:type" content="article" />
+<meta property="og:site_name" content="حكماء العالم | WiseLook" />
+<meta property="og:title" content="{{ $shareOgTitle }}" />
+<meta property="og:description" content="{{ $shareOgDesc }}" />
+<meta property="og:image" content="{{ $shareOgImage }}" />
+<meta property="og:url" content="{{ $shareOgUrl }}" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="{{ $shareOgTitle }}" />
+<meta name="twitter:description" content="{{ $shareOgDesc }}" />
+<meta name="twitter:image" content="{{ $shareOgImage }}" />
+@endpush
+
 <!-- Main Container -->
 <div class="pt-24 px-margin-mobile md:px-margin-desktop max-w-container-max-width mx-auto pb-24" style="direction: {{ $dir }};">
     <!-- Group Hero Section -->
@@ -489,7 +521,13 @@
                     </div>
                 @else
                     <div id="group-subjects-container" class="space-y-4">
+                        @if(isset($highlightedSubject) && $highlightedSubject)
+                            @include('frontend.wiselook.partials.subject_card', ['subject' => $highlightedSubject, 'group' => $group, 'isMember' => $isMember, 'isHighlightedSubject' => true])
+                        @endif
                         @foreach($subjects as $subject)
+                            @if(isset($highlightedSubject) && $highlightedSubject && $highlightedSubject->id === $subject->id)
+                                @continue
+                            @endif
                             @include('frontend.wiselook.partials.subject_card', ['subject' => $subject, 'group' => $group, 'isMember' => $isMember])
                         @endforeach
                     </div>
@@ -828,23 +866,15 @@ $(document).ready(function() {
         const textHeader = _gt.join_us_in_group.replace(':group', groupTitle).replace(':desc', groupDesc.substring(0, 100)).replace('\n:url', '').replace(':url', '').trim();
         const fullShareText = `${textHeader}\n${shareUrl}`;
 
-        // Open custom share modal directly (bypassing native navigator.share to prevent browser permission popups)
-        $('#share-link-input').val(shareUrl);
-        $('#share-modal-preview-text').text(groupDesc ? groupDesc.substring(0, 150) + (groupDesc.length > 150 ? '...' : '') : _gt.group_share_preview.replace(':group', groupTitle));
-        
-        // Set social share hrefs
-        $('#share-whatsapp').attr('href', `https://api.whatsapp.com/send?text=${encodeURIComponent(fullShareText)}`);
-        $('#share-facebook').attr('href', `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`);
-        $('#share-twitter').attr('href', `https://twitter.com/intent/tweet?text=${encodeURIComponent(fullShareText)}`);
-        $('#share-linkedin').attr('href', `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`);
-
-        // Open Modal
-        const modal = $('#share-post-modal');
-        modal.removeClass('hidden').addClass('flex');
-        $('body').addClass('modal-active');
-        setTimeout(() => {
-            modal.addClass('modal-show');
-        }, 20);
+        window.openSocialShareModal({
+            modalTitle: 'مشاركة المجموعة ودعوة الأصدقاء',
+            modalSubtitle: 'شارك رابط المجموعة عبر منصات التواصل لتشجيع أصدقائك على الانضمام',
+            previewText: groupDesc ? groupDesc.substring(0, 150) + (groupDesc.length > 150 ? '...' : '') : _gt.group_share_preview.replace(':group', groupTitle),
+            shareUrl: shareUrl,
+            fullShareText: fullShareText,
+            telegramText: textHeader,
+            facebookQuote: textHeader
+        });
     });
 
     // --- Copy Invite Code Handler ---

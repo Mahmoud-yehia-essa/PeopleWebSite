@@ -100,32 +100,44 @@
                 </div>
             @endif
 
-            <!-- Action button -->
-            @if($isUserMember)
-                <a href="{{ route('frontend.groups.details', $group->id) }}" class="w-full py-2 bg-primary text-white hover:bg-primary/90 text-xs font-bold rounded-lg flex items-center justify-center space-x-2 space-x-reverse transition-all">
-                    <span class="material-symbols-outlined text-[16px]">forum</span>
-                    <span>{{ __t('enter_discussion_yard') }}</span>
-                </a>
-            @else
-                @if(auth()->check())
-                    @if($isOpen)
-                        <button class="join-open-group-btn w-full py-2 bg-secondary text-on-secondary hover:bg-secondary/90 text-xs font-bold rounded-lg flex items-center justify-center space-x-2 space-x-reverse transition-all cursor-pointer" data-group-id="{{ $group->id }}">
-                            <span class="material-symbols-outlined text-[16px]">group_add</span>
-                            <span>{{ __t('join_group_btn') }}</span>
-                        </button>
+            <!-- Action button + Share button -->
+            <div class="flex items-center gap-2">
+                <div class="flex-1">
+                    @if($isUserMember)
+                        <a href="{{ route('frontend.groups.details', $group->id) }}" class="w-full py-2 bg-primary text-white hover:bg-primary/90 text-xs font-bold rounded-lg flex items-center justify-center space-x-2 space-x-reverse transition-all">
+                            <span class="material-symbols-outlined text-[16px]">forum</span>
+                            <span>{{ __t('enter_discussion_yard') }}</span>
+                        </a>
                     @else
-                        <button class="trigger-join-closed-modal w-full py-2 bg-secondary text-on-secondary hover:bg-secondary/90 text-xs font-bold rounded-lg flex items-center justify-center space-x-2 space-x-reverse transition-all cursor-pointer" data-group-id="{{ $group->id }}">
-                            <span class="material-symbols-outlined text-[16px]">vpn_key</span>
-                            <span>{{ __t('request_join_private') }}</span>
-                        </button>
+                        @if(auth()->check())
+                            @if($isOpen)
+                                <button class="join-open-group-btn w-full py-2 bg-secondary text-on-secondary hover:bg-secondary/90 text-xs font-bold rounded-lg flex items-center justify-center space-x-2 space-x-reverse transition-all cursor-pointer" data-group-id="{{ $group->id }}">
+                                    <span class="material-symbols-outlined text-[16px]">group_add</span>
+                                    <span>{{ __t('join_group_btn') }}</span>
+                                </button>
+                            @else
+                                <button class="trigger-join-closed-modal w-full py-2 bg-secondary text-on-secondary hover:bg-secondary/90 text-xs font-bold rounded-lg flex items-center justify-center space-x-2 space-x-reverse transition-all cursor-pointer" data-group-id="{{ $group->id }}">
+                                    <span class="material-symbols-outlined text-[16px]">vpn_key</span>
+                                    <span>{{ __t('request_join_private') }}</span>
+                                </button>
+                            @endif
+                        @else
+                            <a href="{{ route('user.login') }}" class="w-full py-2 bg-secondary text-on-secondary hover:bg-secondary/90 text-xs font-bold rounded-lg flex items-center justify-center space-x-2 space-x-reverse transition-all">
+                                <span class="material-symbols-outlined text-[16px]">login</span>
+                                <span>{{ __t('login_to_participate') }}</span>
+                            </a>
+                        @endif
                     @endif
-                @else
-                    <a href="{{ route('user.login') }}" class="w-full py-2 bg-secondary text-on-secondary hover:bg-secondary/90 text-xs font-bold rounded-lg flex items-center justify-center space-x-2 space-x-reverse transition-all">
-                        <span class="material-symbols-outlined text-[16px]">login</span>
-                        <span>{{ __t('login_to_participate') }}</span>
-                    </a>
-                @endif
-            @endif
+                </div>
+                <button type="button"
+                        class="share-group-card-btn shrink-0 px-3 py-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/15 rounded-lg flex items-center justify-center gap-1 text-xs font-bold transition-all cursor-pointer"
+                        data-group-id="{{ $group->id }}"
+                        data-group-title="{{ $group->title }}"
+                        data-group-desc="{{ rawurlencode(strip_tags($group->description ?? '')) }}"
+                        title="{{ __t('share_group') }}">
+                    <span class="material-symbols-outlined text-[16px]">share</span>
+                </button>
+            </div>
         </div>
     </div>
 </div>

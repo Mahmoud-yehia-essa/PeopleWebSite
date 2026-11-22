@@ -37,8 +37,16 @@
     }
 @endphp
 
-<article class="wisdom-card overflow-hidden bg-white rounded-2xl border {{ $subject->is_pinned ? 'border-amber-300/90 ring-1 ring-amber-300/30' : 'border-[#E1E8E1]' }} shadow-sm mb-6" data-subject-id="{{ $subject->id }}" style="direction: {{ $dir }};">
-    @if($subject->is_pinned)
+@php
+    $isHighlightedSubject = $isHighlightedSubject ?? false;
+@endphp
+<article id="group-subject-{{ $subject->id }}" class="wisdom-card overflow-hidden bg-white rounded-2xl border {{ $isHighlightedSubject ? 'border-primary/70 ring-2 ring-primary/20' : ($subject->is_pinned ? 'border-amber-300/90 ring-1 ring-amber-300/30' : 'border-[#E1E8E1]') }} shadow-sm mb-6" data-subject-id="{{ $subject->id }}" style="direction: {{ $dir }};">
+    @if($isHighlightedSubject)
+        <div class="bg-primary/10 border-b border-primary/20 px-6 py-2 flex items-center gap-1.5 text-primary text-xs font-bold">
+            <span class="material-symbols-outlined text-[15px]">share</span>
+            <span>{{ $dir === 'rtl' ? 'الموضوع المشارك' : 'Shared Topic' }}</span>
+        </div>
+    @elseif($subject->is_pinned)
         <div class="bg-amber-50/90 border-b border-amber-200/70 px-6 py-2 flex items-center gap-1.5 text-amber-800 text-xs font-bold">
             <span class="material-symbols-outlined text-[15px] text-amber-600">push_pin</span>
             <span>{{ $dir === 'rtl' ? 'موضوع مثبت' : 'Pinned Topic' }}</span>
@@ -163,6 +171,18 @@
                     {{ $subject->comments ? $subject->comments->count() : 0 }} 
                     {{ __t('discussion') }}
                 </span>
+            </button>
+
+            <!-- Share Subject button -->
+            <button type="button"
+                    class="share-subject-btn flex-grow flex items-center justify-center gap-2 py-2 hover:bg-surface hover:text-primary rounded-lg transition-all text-on-surface-variant text-xs font-bold cursor-pointer bg-transparent border-0"
+                    data-subject-id="{{ $subject->id }}"
+                    data-group-id="{{ $subject->group_site_id }}"
+                    data-group-title="{{ $group ? $group->title : '' }}"
+                    data-subject-title="{{ $subject->title }}"
+                    data-subject-desc="{{ rawurlencode(strip_tags($subject->description ?? '')) }}">
+                <span class="material-symbols-outlined text-[20px]">share</span>
+                <span class="font-label-sm text-label-sm">{{ $dir === 'rtl' ? 'مشاركة' : 'Share' }}</span>
             </button>
         </div>
     </div>
