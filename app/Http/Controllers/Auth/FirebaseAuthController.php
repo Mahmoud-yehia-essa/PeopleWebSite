@@ -241,19 +241,15 @@ class FirebaseAuthController extends Controller
         ]);
 
         try {
-            $apiUrl = config('services.textmebot.url', 'http://api.textmebot.com/send.php');
-            $apiKey = config('services.textmebot.api_key', 'zh9d51Rp9csh');
+            $messageText = 'رمز التحقق الخاص بك في حكماء العالم هو : ' . $otp;
 
-            $response = \Illuminate\Support\Facades\Http::get($apiUrl, [
-                'recipient' => $phone,
-                'apikey'    => $apiKey,
-                'text'      => 'رمز التحقق الخاص بك في حكماء العالم هو : ' . $otp,
-            ]);
+            $whatsappService = app(\App\Services\WhatsAppService::class);
+            $result = $whatsappService->sendMessage($phone, $messageText, 'otp');
 
-            Log::info('WhatsApp OTP sent via TextMeBot', [
-                'phone'  => $phone,
-                'status' => $response->status(),
-                'body'   => $response->body(),
+            Log::info('WhatsApp OTP sent via WiseLook Gateway', [
+                'phone'   => $phone,
+                'success' => $result['success'] ?? false,
+                'message' => $result['message'] ?? null,
             ]);
 
             return response()->json([
@@ -261,7 +257,7 @@ class FirebaseAuthController extends Controller
                 'message' => 'تم إرسال رمز التحقق عبر الواتساب بنجاح.',
             ]);
         } catch (\Throwable $e) {
-            Log::error('TextMeBot API error', ['error' => $e->getMessage()]);
+            Log::error('WhatsApp Gateway API error', ['error' => $e->getMessage()]);
             return response()->json([
                 'success' => false,
                 'message' => 'تعذر إرسال رسالة الواتساب. يرجى المحاولة لاحقاً.',

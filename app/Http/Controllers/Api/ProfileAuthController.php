@@ -651,19 +651,16 @@ class ProfileAuthController extends Controller
         ]);
 
         try {
-            $apiUrl = config('services.textmebot.url', 'http://api.textmebot.com/send.php');
-            $apiKey = config('services.textmebot.api_key', 'zh9d51Rp9csh');
+            $messageText = 'رمز التحقق الخاص بك في حكماء العالم هو : ' . $otp;
 
-            $response = Http::timeout(15)->get($apiUrl, [
-                'recipient' => $phone,
-                'apikey'    => $apiKey,
-                'text'      => 'رمز التحقق الخاص بك في حكماء العالم هو : ' . $otp,
-            ]);
+            // إرسال رمز التحقق عبر بوابة الواتساب الخاصة بـ WiseLook (السيرفر المباشر Baileys)
+            $whatsappService = app(\App\Services\WhatsAppService::class);
+            $result = $whatsappService->sendMessage($phone, $messageText, 'otp');
 
-            Log::info('API WhatsApp OTP sent via TextMeBot', [
-                'phone'  => $phone,
-                'status' => $response->status(),
-                'body'   => $response->body(),
+            Log::info('API WhatsApp OTP sent via WiseLook Gateway', [
+                'phone'   => $phone,
+                'success' => $result['success'] ?? false,
+                'message' => $result['message'] ?? null,
             ]);
 
             return response()->json([
@@ -672,7 +669,7 @@ class ProfileAuthController extends Controller
                 'message'         => 'تم إرسال رمز التحقق عبر الواتساب بنجاح.',
             ]);
         } catch (\Throwable $e) {
-            Log::error('API TextMeBot error', ['error' => $e->getMessage()]);
+            Log::error('API WhatsApp Gateway error', ['error' => $e->getMessage()]);
             return response()->json([
                 'success' => false,
                 'message' => 'تعذر إرسال رسالة الواتساب. يرجى المحاولة لاحقاً.',
@@ -1282,14 +1279,10 @@ class ProfileAuthController extends Controller
             ]);
 
             try {
-                $apiUrl = config('services.textmebot.url', 'http://api.textmebot.com/send.php');
-                $apiKey = config('services.textmebot.api_key', 'zh9d51Rp9csh');
+                $messageText = 'رمز استعادة كلمة المرور الخاص بك في حكماء العالم هو : ' . $otpCode;
 
-                Http::timeout(15)->get($apiUrl, [
-                    'recipient' => $phone,
-                    'apikey'    => $apiKey,
-                    'text'      => 'رمز استعادة كلمة المرور الخاص بك في حكماء العالم هو : ' . $otpCode,
-                ]);
+                $whatsappService = app(\App\Services\WhatsAppService::class);
+                $result = $whatsappService->sendMessage($phone, $messageText, 'password_reset');
 
                 return response()->json([
                     'success'         => true,
@@ -1297,7 +1290,7 @@ class ProfileAuthController extends Controller
                     'message'         => 'تم إرسال رمز استعادة كلمة المرور عبر الواتساب بنجاح.'
                 ]);
             } catch (\Throwable $e) {
-                Log::error('TextMeBot error: ' . $e->getMessage());
+                Log::error('WhatsApp Gateway error: ' . $e->getMessage());
                 return response()->json([
                     'success' => false,
                     'message' => 'تعذر إرسال رمز التحقق عبر الواتساب.'
