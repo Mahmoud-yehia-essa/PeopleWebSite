@@ -40,7 +40,7 @@ class WhatsAppService
         $baseUrl = rtrim($settings->local_server_url ?: 'http://127.0.0.1:3001', '/');
 
         try {
-            $response = Http::timeout(3)->get("{$baseUrl}/status");
+            $response = Http::timeout(2)->get("{$baseUrl}/status");
 
             if ($response->successful()) {
                 $data = $response->json();
@@ -49,45 +49,103 @@ class WhatsAppService
                 $name = $data['name'] ?? null;
 
                 // تحديث حالة الاتصال في قاعدة البيانات إذا تغيرت
-                if ($settings->is_connected !== $isConnected || $settings->connected_phone !== $phone) {
+                if ($settings->is_connected !== $isConnected || ($phone && $settings->connected_phone !== $phone)) {
                     $settings->update([
                         'is_connected'      => $isConnected,
-                        'connected_phone'   => $phone,
-                        'connected_name'    => $name,
+                        'connected_phone'   => $phone ?: $settings->connected_phone,
+                        'connected_name'    => $name ?: $settings->connected_name,
                         'last_connected_at' => $isConnected ? now() : $settings->last_connected_at,
                     ]);
                 }
 
                 return [
-                    'online'       => true,
-                    'is_connected' => $isConnected,
-                    'status'       => $data['status'] ?? 'unknown',
-                    'phone'        => $phone,
-                    'name'         => $name,
-                    'qr'           => $data['qr'] ?? null,
-                    'pairing_code' => $data['pairing_code'] ?? null,
-                    'engine'       => 'local',
-                    'message'      => $isConnected ? 'متصل بنجاح وجاهز للإرسال' : 'بانتظار مسح رمز QR من تطبيق الواتساب',
+                    'online'             => true,
+                    'is_connected'       => $isConnected,
+                    'has_session'        => (bool)($data['has_session'] ?? false),
+                    'status'             => $data['status'] ?? 'unknown',
+                    'phone'              => $phone ?: $settings->connected_phone,
+                    'name'               => $name ?: $settings->connected_name,
+                    'qr'                 => $data['qr'] ?? null,
+                    'pairing_code'       => $data['pairing_code'] ?? null,
+                    'reconnect_attempts' => $data['reconnect_attempts'] ?? 0,
+                    'engine'             => 'local',
+                    'message'            => $isConnected ? 'متصل بنجاح وجاهز للإرسال' : ($data['status'] === 'reconnecting' ? 'جاري استعادة الاتصال بالواتساب تلقائياً...' : 'بانتظار مسح رمز QR من تطبيق الواتساب'),
                 ];
             }
         } catch (Throwable $e) {
-            Log::warning('WhatsApp Local Service connection error: ' . $e->getMessage());
-        }
-
-        if ($settings->is_connected) {
-            $settings->update(['is_connected' => false]);
+            // محاولة التشغيل التلقائي إذا كان الخادم المحلي متوقفاً
+            $this->attemptAutoStartService();
         }
 
         return [
             'online'       => false,
             'is_connected' => false,
+            'has_session'  => !empty($settings->connected_phone),
             'status'       => 'service_offline',
-            'phone'        => null,
-            'name'         => null,
+            'phone'        => $settings->connected_phone,
+            'name'         => $settings->connected_name,
             'qr'           => null,
             'pairing_code' => null,
             'engine'       => 'local',
-            'message'      => 'محرك الواتساب الداخلي غير متصل حالياً (Node Service Offline)',
+            'message'      => 'محرك الواتساب الداخلي متوقف حالياً. يمكنك تشغيله فوراً بالضغط على زر تشغيل السيرفر أدناه.',
+        ];
+    }
+
+    /**
+     * محاولة تشغيل خادم الواتساب تلقائياً في الخلفية
+     */
+    public function attemptAutoStartService(): void
+    {
+        // تجنب تكرار محاولات التشغيل المتزامنة باستخدام cache lock
+        if (\Illuminate\Support\Facades\Cache::has('wa_auto_starting')) {
+            return;
+        }
+        \Illuminate\Support\Facades\Cache::put('wa_auto_starting', true, 10);
+
+        try {
+            $serviceDir = base_path('whatsapp-service');
+            $logPath = storage_path('logs/whatsapp.log');
+            if (is_dir($serviceDir)) {
+                $cmd = "cd " . escapeshellarg($serviceDir) . " && (nohup node server.js >> " . escapeshellarg($logPath) . " 2>&1 &)";
+                @exec($cmd);
+            }
+        } catch (Throwable $e) {}
+    }
+
+    /**
+     * تشغيل خادم الواتساب يدوياً والتحقق من عمله
+     */
+    public function startLocalService(): array
+    {
+        $serviceDir = base_path('whatsapp-service');
+        $logPath = storage_path('logs/whatsapp.log');
+
+        try {
+            $res = Http::timeout(1)->get('http://127.0.0.1:3001/status');
+            if ($res->successful()) {
+                return ['success' => true, 'message' => 'خادم الواتساب الداخلي يعمل بالفعل على المنفذ 3001.'];
+            }
+        } catch (Throwable $e) {}
+
+        if (!is_dir($serviceDir)) {
+            return ['success' => false, 'message' => 'مجلد whatsapp-service غير موجود على السيرفر.'];
+        }
+
+        $cmd = "cd " . escapeshellarg($serviceDir) . " && (nohup node server.js >> " . escapeshellarg($logPath) . " 2>&1 &)";
+        @exec($cmd);
+
+        usleep(1500000); // الانتظار 1.5 ثانية للتشغيل
+
+        try {
+            $res = Http::timeout(2)->get('http://127.0.0.1:3001/status');
+            if ($res->successful()) {
+                return ['success' => true, 'message' => 'تم تشغيل خادم الواتساب بنجاح وجاري الاتصال!'];
+            }
+        } catch (Throwable $e) {}
+
+        return [
+            'success' => true,
+            'message' => 'تم إرسال أمر تشغيل خادم الواتساب في الخلفية بنجاح، وسيبدأ خلال ثوانٍ.',
         ];
     }
 

@@ -95,6 +95,24 @@ class WhatsAppController extends Controller
     }
 
     /**
+     * تشغيل خادم الواتساب يدوياً من لوحة التحكم
+     */
+    public function startService(Request $request)
+    {
+        $result = $this->whatsappService->startLocalService();
+
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json($result);
+        }
+
+        return redirect()->back()->with([
+            'message'    => $result['message'],
+            'alert-type' => $result['success'] ? 'success' : 'error',
+            'active_tab' => 'connect',
+        ]);
+    }
+
+    /**
      * قطع الاتصال وإعادة ضبط الجلسة
      */
     public function disconnect()

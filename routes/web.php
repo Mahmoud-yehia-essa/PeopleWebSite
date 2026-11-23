@@ -335,6 +335,7 @@ Route::middleware(['auth', 'admin'])->group(function () {
     Route::prefix('admin/whatsapp')->name('admin.whatsapp.')->group(function () {
         Route::get('/', [\App\Http\Controllers\Admin\WhatsAppController::class, 'index'])->name('index');
         Route::get('/ajax-status', [\App\Http\Controllers\Admin\WhatsAppController::class, 'ajaxStatus'])->name('ajax_status');
+        Route::post('/start-service', [\App\Http\Controllers\Admin\WhatsAppController::class, 'startService'])->name('start_service');
         Route::post('/pairing-code', [\App\Http\Controllers\Admin\WhatsAppController::class, 'requestPairingCode'])->name('pairing_code');
         Route::post('/send', [\App\Http\Controllers\Admin\WhatsAppController::class, 'sendMessage'])->name('send');
         Route::post('/disconnect', [\App\Http\Controllers\Admin\WhatsAppController::class, 'disconnect'])->name('disconnect');

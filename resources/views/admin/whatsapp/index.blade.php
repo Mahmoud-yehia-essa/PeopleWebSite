@@ -22,10 +22,20 @@
                     <span class="pulse-dot bg-white"></span>
                     <span>متصل: +{{ $status['phone'] ?? $settings->connected_phone }}</span>
                 </span>
+            @elseif(($status['status'] ?? '') === 'reconnecting')
+                <span class="badge bg-info text-dark px-3 py-2 fs-6 shadow-sm d-flex align-items-center gap-2">
+                    <i class="bx bx-loader-alt bx-spin fs-5"></i>
+                    <span>جاري استعادة الاتصال...</span>
+                </span>
             @elseif(($status['status'] ?? '') === 'waiting_for_scan')
                 <span class="badge bg-warning text-dark px-3 py-2 fs-6 shadow-sm d-flex align-items-center gap-2">
                     <i class="bx bx-qr-scan fs-5"></i>
                     <span>بانتظار مسح رمز QR</span>
+                </span>
+            @elseif(empty($status['online']) || ($status['status'] ?? '') === 'service_offline')
+                <span class="badge bg-danger px-3 py-2 fs-6 shadow-sm d-flex align-items-center gap-2">
+                    <i class="bx bx-power-off fs-5"></i>
+                    <span>الخادم متوقف</span>
                 </span>
             @else
                 <span class="badge bg-secondary px-3 py-2 fs-6 shadow-sm d-flex align-items-center gap-2">
@@ -225,19 +235,53 @@
                                     <!-- QR Box Column -->
                                     <div class="col-md-5 text-center">
                                         <div class="p-4 bg-white rounded-4 shadow-sm border position-relative qr-wrapper d-inline-block">
-                                            <div id="qrLoadingSpinner" style="display: {{ empty($status['qr']) ? 'flex' : 'none' }}; width: 240px; height: 240px;" class="align-items-center justify-content-center flex-column">
-                                                <div class="spinner-border text-success mb-3" style="width: 3rem; height: 3rem;" role="status"></div>
-                                                <span class="text-muted small">جاري تهيئة رمز QR...</span>
+                                            @php
+                                                $isOffline = empty($status['online']) || (($status['status'] ?? '') === 'service_offline');
+                                                $isReconnecting = (($status['status'] ?? '') === 'reconnecting');
+                                                $hasQr = !empty($status['qr']);
+                                            @endphp
+
+                                            <!-- 1. Service Offline Container -->
+                                            <div id="serviceOfflineContainer" style="display: {{ $isOffline ? 'flex' : 'none' }}; width: 240px; height: 240px;" class="align-items-center justify-content-center flex-column text-center p-3">
+                                                <div class="text-danger mb-2">
+                                                    <i class="bx bx-power-off" style="font-size: 3rem;"></i>
+                                                </div>
+                                                <h6 class="font-weight-bold text-danger mb-1">خادم الواتساب متوقف</h6>
+                                                <p class="text-muted small mb-3" style="font-size: 0.78rem;">محرك Node.js غير نشط على المنفذ 3001.</p>
+                                                <button type="button" class="btn btn-sm btn-success px-3 py-2 rounded-pill shadow-sm" id="btnStartService" onclick="startWhatsAppService()">
+                                                    <i class="bx bx-play me-1"></i> تشغيل خادم الواتساب الآن
+                                                </button>
                                             </div>
 
-                                            <div id="qrImageWrapper" style="display: {{ !empty($status['qr']) ? 'block' : 'none' }}; position: relative;">
+                                            <!-- 2. Reconnecting Container -->
+                                            <div id="reconnectingContainer" style="display: {{ (!$isOffline && $isReconnecting) ? 'flex' : 'none' }}; width: 240px; height: 240px;" class="align-items-center justify-content-center flex-column text-center p-3">
+                                                <div class="spinner-border text-primary mb-3" style="width: 2.5rem; height: 2.5rem;" role="status"></div>
+                                                <h6 class="font-weight-bold text-primary mb-1">جاري استعادة الاتصال...</h6>
+                                                <p class="text-muted small mb-2" style="font-size: 0.78rem;">يتم الاتصال تلقائياً بالجلسة السابقة دون الحاجة لإعادة المسح.</p>
+                                                <span class="badge bg-light text-primary border" id="reconnectingPhoneBadge" style="display: {{ !empty($status['phone']) ? 'inline-block' : 'none' }};">{{ !empty($status['phone']) ? ('+' . $status['phone']) : '' }}</span>
+                                            </div>
+
+                                            <!-- 3. Loading QR Spinner -->
+                                            <div id="qrLoadingSpinner" style="display: {{ (!$isOffline && !$isReconnecting && !$hasQr) ? 'flex' : 'none' }}; width: 240px; height: 240px;" class="align-items-center justify-content-center flex-column text-center">
+                                                <div class="spinner-border text-success mb-3" style="width: 3rem; height: 3rem;" role="status"></div>
+                                                <span class="text-muted small fw-bold">جاري تهيئة رمز QR...</span>
+                                            </div>
+
+                                            <!-- 4. QR Image -->
+                                            <div id="qrImageWrapper" style="display: {{ (!$isOffline && !$isReconnecting && $hasQr) ? 'block' : 'none' }}; position: relative;">
                                                 <img id="whatsappQrImage" src="{{ $status['qr'] ?? '' }}" alt="WhatsApp QR Code" class="img-fluid rounded" style="width: 240px; height: 240px; object-fit: contain;">
                                                 <div class="scanner-laser-line"></div>
                                             </div>
 
                                             <div class="mt-3">
                                                 <span class="badge bg-light text-secondary border px-3 py-2 small" id="qrRefreshNotice">
-                                                    <i class="bx bx-refresh bx-spin me-1 text-success"></i> فحص الاتصال التلقائي نشط
+                                                    @if($isOffline)
+                                                        <i class="bx bx-error text-danger me-1"></i> الخادم متوقف
+                                                    @elseif($isReconnecting)
+                                                        <i class="bx bx-loader bx-spin text-primary me-1"></i> جاري استعادة الاتصال...
+                                                    @else
+                                                        <i class="bx bx-refresh bx-spin me-1 text-success"></i> فحص الاتصال التلقائي نشط
+                                                    @endif
                                                 </span>
                                             </div>
                                         </div>
@@ -754,6 +798,31 @@ if ($result['success'] ?? false) {
             });
         });
 
+        // تشغيل خادم الواتساب يدوياً عبر زر الواجهة
+        window.startWhatsAppService = function() {
+            var btn = $('#btnStartService');
+            btn.prop('disabled', true).html('<i class="bx bx-loader bx-spin me-1"></i> جاري تشغيل الخادم...');
+
+            $.ajax({
+                url: "{{ route('admin.whatsapp.start_service') }}",
+                type: "POST",
+                data: {
+                    _token: "{{ csrf_token() }}"
+                },
+                success: function(res) {
+                    btn.prop('disabled', false).html('<i class="bx bx-play me-1"></i> تشغيل خادم الواتساب الآن');
+                    if (res && res.message) {
+                        alert(res.message);
+                    }
+                    setTimeout(checkWhatsAppStatus, 1500);
+                },
+                error: function() {
+                    btn.prop('disabled', false).html('<i class="bx bx-play me-1"></i> تشغيل خادم الواتساب الآن');
+                    alert('تعذر إرسال أمر التشغيل تلقائياً. يمكنك تشغيله يدوياً عبر SSH.');
+                }
+            });
+        };
+
         // الفحص اللحظي لحالة الاتصال ورمز QR (Live Status Polling كل 3 ثوانٍ)
         var pollTimer = null;
 
@@ -764,7 +833,7 @@ if ($result['success'] ?? false) {
                 dataType: "json",
                 success: function(data) {
                     if (data.is_connected) {
-                        // متصل الآن
+                        // 1. متصل بنجاح
                         $('#scanQrContainer').hide();
                         $('#connectedContainer').show();
                         $('#connectedPhoneDisplay').text('+' + data.phone);
@@ -780,36 +849,86 @@ if ($result['success'] ?? false) {
                             </span>
                         `);
                     } else {
-                        // غير متصل أو بانتظار المسح
+                        // غير متصل حالياً
                         $('#connectedContainer').hide();
                         $('#scanQrContainer').show();
-                        $('#cardStatusText').text('غير متصل').css('color', '#dc2626');
-                        $('#cardConnectedPhone').text('لا يوجد رقم مقترن');
 
-                        if (data.qr) {
+                        if (!data.online || data.status === 'service_offline') {
+                            // 2. الخادم متوقف
+                            $('#qrImageWrapper').hide();
+                            $('#qrLoadingSpinner').hide();
+                            $('#reconnectingContainer').hide();
+                            $('#serviceOfflineContainer').show();
+
+                            $('#cardStatusText').text('الخادم متوقف').css('color', '#dc2626');
+                            $('#cardConnectedPhone').text(data.phone ? ('+' + data.phone + ' (جلسة سابقة)') : 'الخادم غير نشط');
+                            $('#topStatusIndicator').html(`
+                                <span class="badge bg-danger px-3 py-2 fs-6 shadow-sm d-flex align-items-center gap-2">
+                                    <i class="bx bx-power-off fs-5"></i>
+                                    <span>الخادم متوقف</span>
+                                </span>
+                            `);
+                            $('#qrRefreshNotice').html('<i class="bx bx-error text-danger me-1"></i> الخادم متوقف');
+                        } else if (data.status === 'reconnecting') {
+                            // 3. جاري إعادة الاتصال تلقائياً بالجلسة السابقة
+                            $('#qrImageWrapper').hide();
+                            $('#qrLoadingSpinner').hide();
+                            $('#serviceOfflineContainer').hide();
+                            $('#reconnectingContainer').show();
+
+                            if (data.phone) {
+                                $('#reconnectingPhoneBadge').text('الرقم: +' + data.phone).show();
+                            } else {
+                                $('#reconnectingPhoneBadge').hide();
+                            }
+
+                            $('#cardStatusText').text('جاري استعادة الاتصال...').css('color', '#2563eb');
+                            $('#cardConnectedPhone').text(data.phone ? ('+' + data.phone) : 'جاري التحقق');
+                            $('#topStatusIndicator').html(`
+                                <span class="badge bg-info text-dark px-3 py-2 fs-6 shadow-sm d-flex align-items-center gap-2">
+                                    <i class="bx bx-loader-alt bx-spin fs-5"></i>
+                                    <span>جاري استعادة الاتصال...</span>
+                                </span>
+                            `);
+                            $('#qrRefreshNotice').html('<i class="bx bx-loader bx-spin text-primary me-1"></i> جاري استعادة الاتصال...');
+                        } else if (data.qr) {
+                            // 4. رمز QR جاهز للمسح
+                            $('#serviceOfflineContainer').hide();
+                            $('#reconnectingContainer').hide();
                             $('#qrLoadingSpinner').hide();
                             $('#whatsappQrImage').attr('src', data.qr);
                             $('#qrImageWrapper').show();
+
+                            $('#cardStatusText').text('بانتظار مسح QR').css('color', '#d97706');
+                            $('#cardConnectedPhone').text('امسح الرمز من هاتفك');
                             $('#topStatusIndicator').html(`
                                 <span class="badge bg-warning text-dark px-3 py-2 fs-6 shadow-sm d-flex align-items-center gap-2">
                                     <i class="bx bx-qr-scan fs-5"></i>
                                     <span>بانتظار مسح رمز QR</span>
                                 </span>
                             `);
+                            $('#qrRefreshNotice').html('<i class="bx bx-refresh bx-spin me-1 text-success"></i> فحص الاتصال التلقائي نشط');
                         } else {
+                            // 5. جاري تهيئة رمز QR
+                            $('#serviceOfflineContainer').hide();
+                            $('#reconnectingContainer').hide();
                             $('#qrImageWrapper').hide();
                             $('#qrLoadingSpinner').show();
+
+                            $('#cardStatusText').text('جاري التهيئة...').css('color', '#6b7280');
+                            $('#cardConnectedPhone').text('يرجى الانتظار');
                             $('#topStatusIndicator').html(`
                                 <span class="badge bg-secondary px-3 py-2 fs-6 shadow-sm d-flex align-items-center gap-2">
-                                    <i class="bx bx-power-off fs-5"></i>
-                                    <span>غير متصل</span>
+                                    <i class="bx bx-loader-alt bx-spin fs-5"></i>
+                                    <span>جاري التهيئة...</span>
                                 </span>
                             `);
+                            $('#qrRefreshNotice').html('<i class="bx bx-refresh bx-spin me-1 text-success"></i> فحص الاتصال التلقائي نشط');
                         }
                     }
                 },
                 error: function() {
-                    // في حال توقف السيرفر أو حدوث خطأ
+                    // في حال حدوث خطأ في طلب AJAX
                 }
             });
         }
