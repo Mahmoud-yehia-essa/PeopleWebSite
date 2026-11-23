@@ -243,7 +243,12 @@
     <footer>
         <div class="ownership-box">
             <p class="ownership-text">
-                © 2026 WiseLook. Owned and operated by Mahmoud Yehya Mohamed Awad.
+                © 2026 WiseLook. All rights reserved.
+            </p>
+            <p style="margin-top: 0.65rem; font-size: 0.85rem;">
+                <a href="{{ route('terms') }}" style="color: #93c5fd; text-decoration: none;">Terms of Service</a> &bull; 
+                <a href="{{ route('privacy') }}" style="color: #93c5fd; text-decoration: none;">Privacy Policy</a> &bull; 
+                <a href="{{ route('account.deletion') }}" style="color: #93c5fd; text-decoration: none;">Account Deletion</a>
             </p>
         </div>
     </footer>

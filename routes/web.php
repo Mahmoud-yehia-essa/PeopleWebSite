@@ -77,6 +77,18 @@ Route::get('/dev', [PostController::class, 'indexFrontend']);
 Route::get('/terms', function () {
     return view('frontend.wiselook.pages.terms');
 })->name('terms');
+Route::get('/privacy', function () {
+    return view('frontend.wiselook.pages.privacy');
+})->name('privacy');
+Route::get('/privacy-policy', function () {
+    return view('frontend.wiselook.pages.privacy');
+})->name('privacy.policy');
+Route::get('/privacy-policy.html', function () {
+    return view('frontend.wiselook.pages.privacy');
+});
+Route::get('/privacy-policy-2023.html', function () {
+    return view('frontend.wiselook.pages.privacy');
+});
 Route::get('/delete-account', [\App\Http\Controllers\AccountDeletionController::class, 'show'])->name('account.deletion');
 Route::get('/account-deletion', [\App\Http\Controllers\AccountDeletionController::class, 'show']);
 Route::post('/delete-account/request', [\App\Http\Controllers\AccountDeletionController::class, 'submitRequest'])

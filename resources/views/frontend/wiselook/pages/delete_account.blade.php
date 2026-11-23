@@ -337,10 +337,11 @@
         <div class="brand-badge">WiseLook</div>
         <h1>طلب حذف الحساب والبيانات</h1>
         <div class="subtitle-en">WiseLook Account &amp; Data Deletion</div>
-        <div class="meta">https://wiselook.org | Developer: Mahmoud Yehya Mohamed Awad</div>
+        <div class="meta">https://wiselook.org | WiseLook Platform</div>
         <div class="top-links">
             <a href="{{ url('/') }}">الصفحة الرئيسية / Home</a>
             <a href="{{ route('terms') }}">الشروط والأحكام / Terms of Service</a>
+            <a href="{{ route('privacy') }}">سياسة الخصوصية / Privacy Policy</a>
         </div>
     </header>
 
@@ -510,7 +511,7 @@
     </main>
 
     <footer>
-        <p>© 2026 WiseLook (<a href="https://wiselook.org">https://wiselook.org</a>). Owned and operated by Mahmoud Yehya Mohamed Awad.</p>
+        <p>© 2026 WiseLook (<a href="https://wiselook.org">https://wiselook.org</a>). All rights reserved.</p>
     </footer>
 
 </body>

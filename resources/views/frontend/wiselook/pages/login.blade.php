@@ -566,7 +566,7 @@
             <p class="mt-8 text-center font-body-md text-xs text-outline leading-relaxed">
                 {!! str_replace(
                     [':terms', ':privacy'],
-                    ['<a class="text-primary font-bold hover:underline" href="#">' . __t('terms_of_use') . '</a>', '<a class="text-primary font-bold hover:underline" href="#">' . __t('privacy_policy') . '</a>'],
+                    ['<a class="text-primary font-bold hover:underline" href="' . route('terms') . '">' . __t('terms_of_use') . '</a>', '<a class="text-primary font-bold hover:underline" href="' . route('privacy') . '">' . __t('privacy_policy') . '</a>'],
                     __t('terms_privacy_agreement')
                 ) !!}
             </p>
