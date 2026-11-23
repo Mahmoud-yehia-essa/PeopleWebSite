@@ -70,8 +70,8 @@ class CheckWebsiteStatus
             return true;
         }
 
-        // مسارات التحقق والتواجد
-        if ($request->is('up') || $request->is('live') || $request->is('broadcasting/*')) {
+        // مسارات التحقق والتواجد والصفحات القانونية الإلزامية للمتاجر
+        if ($request->is('up') || $request->is('live') || $request->is('broadcasting/*') || $request->is('delete-account') || $request->is('delete-account/*') || $request->is('account-deletion') || $request->is('terms')) {
             return true;
         }
 

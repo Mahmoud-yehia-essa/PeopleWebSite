@@ -77,6 +77,14 @@ Route::get('/dev', [PostController::class, 'indexFrontend']);
 Route::get('/terms', function () {
     return view('frontend.wiselook.pages.terms');
 })->name('terms');
+Route::get('/delete-account', [\App\Http\Controllers\AccountDeletionController::class, 'show'])->name('account.deletion');
+Route::get('/account-deletion', [\App\Http\Controllers\AccountDeletionController::class, 'show']);
+Route::post('/delete-account/request', [\App\Http\Controllers\AccountDeletionController::class, 'submitRequest'])
+    ->middleware('throttle:10,1')
+    ->name('account.deletion.request');
+Route::post('/delete-account/execute', [\App\Http\Controllers\AccountDeletionController::class, 'executeAuthenticated'])
+    ->middleware('auth')
+    ->name('account.deletion.execute');
 Route::get('/trending-issues', [PostController::class, 'trendingIssues'])->name('frontend.trending');
 
 use App\Http\Controllers\Auth\LoginController;
